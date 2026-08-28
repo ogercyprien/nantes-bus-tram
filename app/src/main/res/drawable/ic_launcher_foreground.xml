@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground (108 x 108 dp): the bus pictogram, with the Nantes blason
+     (rasterised to drawable-nodpi/launcher_blason_nantes.png) centred on the bus's white lower panel
+     (y 60-78, x 31-77 on the 108 grid): 15 units tall, keeping the shield's 600:660 ratio.
+     The blason is placed with FRACTIONAL insets so it scales with the icon: launchers draw the
+     foreground at their own size, never at 108 dp, and fixed dp offsets would leave it drifting. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_bus" />
+    <item>
+        <inset
+            android:insetLeft="43.685%"
+            android:insetTop="56.944%"
+            android:insetRight="43.685%"
+            android:insetBottom="29.167%">
+            <bitmap
+                android:filter="true"
+                android:gravity="fill"
+                android:src="@drawable/launcher_blason_nantes" />
+        </inset>
+    </item>
+</layer-list>

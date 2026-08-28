@@ -1,0 +1,24 @@
+# Gradle / Kotlin build output and caches
+.gradle/
+.kotlin/
+build/
+
+# Machine-specific config (Android SDK path)
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Packaged binaries (built APKs, downloaded official Naolib APKs used for reverse engineering)
+*.apk
+*.aab
+*.xapk
+
+# Signing material
+*.jks
+*.keystore

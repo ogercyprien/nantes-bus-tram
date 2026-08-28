@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bus et Tram Nantes</string>
+
+    <!-- §4 Navigation - bottom nav tab labels -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_search">Recherche</string>
+    <string name="nav_map">Plan</string>
+
+    <!-- §5.1 Home screen -->
+    <string name="home_empty_state_cta">Ajoutez des arrêts favoris via la recherche</string>
+    <string name="end_of_service">Fin de service</string>
+    <string name="action_view_stop">Voir l\'arrêt</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_reorder">Réorganiser</string>
+
+    <!-- §5.2 Search screen -->
+    <string name="search_mode_stop">Arrêt</string>
+    <string name="search_mode_itinerary">Itinéraire</string>
+    <string name="action_search_address">Rechercher une adresse</string>
+    <string name="recent_searches_label">Recherches récentes</string>
+
+    <!-- §5.2.3 Itinerary search -->
+    <string name="itinerary_field_departure">Départ</string>
+    <string name="itinerary_field_arrival">Arrivée</string>
+    <string name="action_leave_now">Partir maintenant</string>
+    <string name="action_search">Chercher</string>
+
+    <!-- §5.6 Settings screen -->
+    <string name="settings_theme">Thème</string>
+    <string name="settings_cache">Cache</string>
+    <string name="settings_favorites">Favoris</string>
+    <string name="settings_about">À propos</string>
+    <string name="action_clear_cache">Effacer</string>
+    <string name="action_clear_favorites">Tout supprimer</string>
+
+    <!-- §5.7 Offline banner -->
+    <string name="offline_banner">Hors ligne — horaires indisponibles</string>
+
+    <!-- §5.5 Home screen widget - only the appwidget-provider XML's android:description needs a
+         string *resource* (it's read outside any Kotlin/Compose context); the widget's own
+         on-screen text is defined as plain Kotlin string literals in FavoriteStopWidget.kt,
+         matching this codebase's existing convention (see e.g. END_OF_SERVICE_LABEL,
+         OFFLINE_BANNER_TEXT) of hardcoding French UI copy in Kotlin rather than strings.xml. -->
+    <string name="widget_description">Prochains passages d\'un favori</string>
+</resources>

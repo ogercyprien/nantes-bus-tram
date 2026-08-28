@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for Android 11 and below (android:fullBackupContent).
+  We back up user data - the Room database (favorites, recent searches) and the DataStore
+  preferences (theme, last tab) - so it survives a device migration. The HTTP disk caches live in
+  cacheDir, which Auto Backup already excludes by default. The stop/line cache also lives in the
+  Room DB; a restored copy may be stale but self-heals on the next launch's refresh.
+-->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="datastore/" />
+    <include domain="sharedpref" path="." />
+</full-backup-content>

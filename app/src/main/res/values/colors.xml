@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Minimal seed colors - Material 3 dynamic color (Android 12+) overrides these where
+         supported. These are the fallback palette for older devices, derived from the Naolib
+         network's signature orange (see cached line colors, e.g. line 3 = "#EE7402"). -->
+    <color name="seed_primary">#EE7402</color>
+    <color name="seed_on_primary">#FFFFFF</color>
+    <color name="seed_secondary">#00677F</color>
+    <color name="seed_on_secondary">#FFFFFF</color>
+    <color name="seed_background_light">#FFFBFF</color>
+    <color name="seed_background_dark">#1A1C1E</color>
+    <color name="seed_surface_light">#FFFBFF</color>
+    <color name="seed_surface_dark">#1A1C1E</color>
+    <color name="seed_error">#BA1A1A</color>
+
+    <!-- Launcher icon background, also the colour seen through the bus pictogram's window. -->
+    <color name="launcher_green">#34BC38</color>
+</resources>
