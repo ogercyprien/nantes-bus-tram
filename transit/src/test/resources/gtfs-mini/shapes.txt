@@ -1,0 +1,4 @@
+shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence
+"FR_NAOLIB:JourneyPattern:T1A",47.2000,-1.5500,1
+"FR_NAOLIB:JourneyPattern:T1A",47.2000,-1.5601,0
+"FR_NAOLIB:JourneyPattern:T1A",47.2000,-1.5401,2

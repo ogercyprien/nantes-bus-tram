@@ -1,0 +1,14 @@
+stop_id,stop_code,stop_name,stop_lat,stop_lon,location_type,parent_station,wheelchair_boarding
+"FR_NAOLIB:StopPlace:1",,"Alpha",47.2000,-1.5600,1,,1
+"FR_NAOLIB:StopPlace:2",,"Beta",47.2000,-1.5500,1,,0
+"FR_NAOLIB:StopPlace:3",,"Gamma",47.2000,-1.5400,1,,1
+"FR_NAOLIB:StopPlace:4",,"Delta",47.2100,-1.5300,1,,0
+"FR_NAOLIB:StopPlace:5",,"Epsilon, Nord",47.2018,-1.5400,1,,0
+"FR_NAOLIB:Quay:11",,"Alpha",47.2000,-1.5601,0,"FR_NAOLIB:StopPlace:1",1
+"FR_NAOLIB:Quay:12",,"Alpha",47.2001,-1.5600,0,"FR_NAOLIB:StopPlace:1",1
+"FR_NAOLIB:Quay:21",,"Beta",47.2000,-1.5501,0,"FR_NAOLIB:StopPlace:2",0
+"FR_NAOLIB:Quay:22",,"Beta",47.2001,-1.5500,0,"FR_NAOLIB:StopPlace:2",0
+"FR_NAOLIB:Quay:31",,"Gamma",47.2000,-1.5401,0,"FR_NAOLIB:StopPlace:3",1
+"FR_NAOLIB:Quay:32",,"Gamma",47.2001,-1.5400,0,"FR_NAOLIB:StopPlace:3",1
+"FR_NAOLIB:Quay:41",,"Delta",47.2100,-1.5300,0,"FR_NAOLIB:StopPlace:4",0
+"FR_NAOLIB:Quay:51",,"Epsilon, Nord",47.2018,-1.5400,0,"FR_NAOLIB:StopPlace:5",0

@@ -1,0 +1,10 @@
+route_id,service_id,trip_id,trip_headsign,trip_short_name,direction_id,block_id,shape_id
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:100-WEEK","Gamma",,0,,"FR_NAOLIB:JourneyPattern:T1A"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEKB","FR_NAOLIB:VehicleJourney:100-WEEKB","Gamma",,0,,"FR_NAOLIB:JourneyPattern:T1A"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:101-WEEK","Gamma",,0,,"FR_NAOLIB:JourneyPattern:T1A"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:SUN","FR_NAOLIB:VehicleJourney:103-SUN","Gamma",,0,,"FR_NAOLIB:JourneyPattern:T1A"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:104-WEEK","Gamma",,0,,"FR_NAOLIB:JourneyPattern:T1A"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:105-WEEK","Beta",,0,,"FR_NAOLIB:JourneyPattern:T1S"
+"FR_NAOLIB:Line:T1","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:110-WEEK","Alpha",,1,,"FR_NAOLIB:JourneyPattern:T1R"
+"FR_NAOLIB:Line:B2","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:200-WEEK","Delta",,0,,
+"FR_NAOLIB:Line:B3","FR_NAOLIB:Timetable:WEEK","FR_NAOLIB:VehicleJourney:300-WEEK","Delta",,0,,

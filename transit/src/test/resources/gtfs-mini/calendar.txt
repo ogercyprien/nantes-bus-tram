@@ -1,0 +1,4 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+"FR_NAOLIB:Timetable:WEEK",1,1,1,1,1,0,0,20261005,20261031
+"FR_NAOLIB:Timetable:WEEKB",1,1,1,1,1,0,0,20261101,20261130
+"FR_NAOLIB:Timetable:SUN",0,0,0,0,0,0,1,20261005,20261130

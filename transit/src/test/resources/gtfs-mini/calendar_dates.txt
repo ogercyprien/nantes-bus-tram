@@ -1,0 +1,3 @@
+service_id,date,exception_type
+"FR_NAOLIB:Timetable:WEEK",20261012,2
+"FR_NAOLIB:Timetable:SUN",20261012,1

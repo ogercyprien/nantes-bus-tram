@@ -1,0 +1,4 @@
+﻿route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color,route_sort_order
+"FR_NAOLIB:Line:T1","A","T1","Alpha - Gamma",,0,,007a45,ffffff,1
+"FR_NAOLIB:Line:B2","A","B2","Beta - Delta",,3,,ffcd1c,000000,2
+"FR_NAOLIB:Line:B3","A","B3","Epsilon - Delta",,3,,0bbbef,ffffff,3
