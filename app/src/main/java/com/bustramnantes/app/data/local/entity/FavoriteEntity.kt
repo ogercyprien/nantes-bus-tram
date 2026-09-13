@@ -23,6 +23,8 @@ data class FavoriteEntity(
     val lineShortName: String?,
     val lineColor: String?,
     val direction: String?,
+    /** Human-readable direction name captured at save time (nullable; added in DB v2). */
+    val directionName: String? = null,
     val position: Int,
     val addedAt: Long,
 )
