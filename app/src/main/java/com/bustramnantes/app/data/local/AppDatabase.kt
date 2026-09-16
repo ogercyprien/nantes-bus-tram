@@ -5,22 +5,26 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.bustramnantes.app.data.local.dao.FavoriteDao
+import com.bustramnantes.app.data.local.dao.RecentSearchDao
 import com.bustramnantes.app.data.local.entity.FavoriteEntity
+import com.bustramnantes.app.data.local.entity.RecentSearchEntity
 
 /**
- * The app's single Room database: favorites - user data, fully local, no remote
+ * The app's single Room database: favorites and recent searches - user data, fully local, no remote
  * sync. Stops and lines are never stored here: they come from the packed GTFS network (see
  * `TransitNetworkRepository`). Every migration is additive; never fall back to a destructive one.
  */
 @Database(
     entities = [
         FavoriteEntity::class,
+        RecentSearchEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun recentSearchDao(): RecentSearchDao
 
     companion object {
         const val DATABASE_NAME = "bus_et_tram.db"
@@ -34,6 +38,20 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE favorites ADD COLUMN directionName TEXT")
+            }
+        }
+
+        /**
+         * v2 → v3: adds the `recent_search` table (the last stops searched, shown under the empty
+         * search field). New table, nothing to carry over.
+         */
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `recent_search` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `query` TEXT NOT NULL, " +
+                        "`type` TEXT NOT NULL, `stopId` TEXT, `searchedAt` INTEGER NOT NULL)",
+                )
             }
         }
     }
