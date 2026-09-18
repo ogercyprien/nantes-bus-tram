@@ -19,7 +19,7 @@ import com.bustramnantes.app.data.local.entity.RecentSearchEntity
         FavoriteEntity::class,
         RecentSearchEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -52,6 +52,18 @@ abstract class AppDatabase : RoomDatabase() {
                         "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `query` TEXT NOT NULL, " +
                         "`type` TEXT NOT NULL, `stopId` TEXT, `searchedAt` INTEGER NOT NULL)",
                 )
+            }
+        }
+
+        /**
+         * v3 → v4: adds `favorites.lineTextColor` so a line favorite's badge uses the line's own text
+         * colour (`route_text_color`) rather than a contrast guess. Nullable TEXT, no SQL default
+         * (same additive pattern as `favorites.directionName`); existing favorites get NULL and the
+         * badge falls back to the computed contrast colour.
+         */
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE favorites ADD COLUMN lineTextColor TEXT")
             }
         }
     }

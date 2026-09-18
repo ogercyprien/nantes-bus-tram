@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
  * [id] is a UUID string. [stopId] is a GTFS StopPlace id (`FR_NAOLIB:StopPlace:<n>`). [lineId] is
  * the GTFS route id `FR_NAOLIB:Line:<short name>`. [type] mirrors [com.bustramnantes.app.domain.model.FavoriteType]'s
  * `name` (`"STOP"` | `"STOP_LINE"` | `"STOP_LINE_DIRECTION"`). [lineId]/[lineShortName]/
- * [lineColor] are null for [com.bustramnantes.app.domain.model.FavoriteType.STOP].
+ * [lineColor]/[lineTextColor] are null for [com.bustramnantes.app.domain.model.FavoriteType.STOP].
  * [direction] is null unless type is `STOP_LINE_DIRECTION`. [position] is the user-defined sort
  * order. [addedAt] is an epoch-ms timestamp.
  */
@@ -22,6 +22,7 @@ data class FavoriteEntity(
     val lineId: String?,
     val lineShortName: String?,
     val lineColor: String?,
+    val lineTextColor: String?,
     val direction: String?,
     /** Human-readable direction name captured at save time (nullable; added in DB v2). */
     val directionName: String? = null,
