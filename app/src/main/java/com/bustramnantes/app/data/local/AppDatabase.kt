@@ -19,7 +19,7 @@ import com.bustramnantes.app.data.local.entity.RecentSearchEntity
         FavoriteEntity::class,
         RecentSearchEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -64,6 +64,17 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_3_4: Migration = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE favorites ADD COLUMN lineTextColor TEXT")
+            }
+        }
+
+        /**
+         * v4 → v5: adds `recent_search.lat` / `lon`, so an address (Géoplateforme) can be a recent
+         * search too, not only a stop. Nullable REAL columns; existing stop entries keep NULL.
+         */
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recent_search ADD COLUMN lat REAL")
+                db.execSQL("ALTER TABLE recent_search ADD COLUMN lon REAL")
             }
         }
     }
