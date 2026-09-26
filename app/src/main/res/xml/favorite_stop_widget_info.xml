@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FavoriteStopWidget provider info: min size 4x2 cells, resizable, refreshed
+     entirely by WorkManager (updatePeriodMillis="0") - see
+     com.bustramnantes.app.worker.BackgroundWorkScheduler / WidgetRefreshWorker. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="90dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="90dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:initialLayout="@layout/favorite_stop_widget_loading"
+    android:previewImage="@mipmap/ic_launcher"
+    android:configure="com.bustramnantes.app.widget.FavoriteStopWidgetConfigActivity"
+    android:description="@string/widget_description" />

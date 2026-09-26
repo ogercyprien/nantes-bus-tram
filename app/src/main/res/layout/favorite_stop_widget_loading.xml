@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Platform-mandated "initialLayout" for FavoriteStopWidget: a plain (non-Glance)
+     View layout the AppWidgetHost can inflate for a single frame before Glance's own composition
+     takes over. Never seen for more than an instant in practice. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ProgressBar
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="center" />
+
+</FrameLayout>
