@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files the app shares through androidx FileProvider (authority ${applicationId}.fileprovider).
+     Only cacheDir/shared/ is exposed: the itinerary "Partager en image" PNG. -->
+<paths>
+    <cache-path name="shared" path="shared/" />
+</paths>
