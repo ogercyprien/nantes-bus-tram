@@ -11,6 +11,7 @@ import java.time.LocalDate
 import java.util.zip.Deflater
 import java.util.zip.DeflaterOutputStream
 import java.util.zip.InflaterInputStream
+import com.bustramnantes.transit.walk.Footpaths
 import kotlin.math.roundToInt
 
 /**
@@ -23,11 +24,13 @@ import kotlin.math.roundToInt
  * start) so pattern indices and start times delta-encode to ~1 byte each. Bump [VERSION] on any
  * layout change: a reader refuses unknown versions and the app falls back to the bundled seed.
  *
- * Versions: **1** = routes, stop places, quays, patterns, trips and shapes.
+ * Versions: 1 = up to the shapes; **2** = + an optional footpaths section (a boolean, then per quay
+ * the count and (to-quay delta, metres) pairs - see [Footpaths]). Version 1 is still read (no
+ * footpaths: the router computes them, or walks crow-fly).
  */
 object NetworkFormat {
-    const val VERSION = 1
-    private val READABLE = setOf(1)
+    const val VERSION = 2
+    private val READABLE = setOf(1, 2)
     private val MAGIC = "NAOLNETW".toByteArray(Charsets.US_ASCII)
 
     fun write(network: TransitNetwork, out: OutputStream) {
@@ -109,6 +112,16 @@ object NetworkFormat {
                 for (k in 0 until shape.size / 2) {
                     val la = micro(shape[2 * k]); val lo = micro(shape[2 * k + 1])
                     d.zigzag(la - la0); d.zigzag(lo - lo0); la0 = la; lo0 = lo
+                }
+            }
+
+            val fp = footpaths
+            d.writeBoolean(fp != null)
+            if (fp != null) {
+                for (q in 0 until quayCount) {
+                    val range = fp.of(q)
+                    d.varint(range.last - range.first + 1)
+                    for (i in range) { d.zigzag(fp.to[i] - q); d.varint(fp.meters[i]) }
                 }
             }
         }
@@ -211,6 +224,18 @@ object NetworkFormat {
             pts
         }
 
+        val footpaths = if (version >= 2 && d.readBoolean()) {
+            val start = IntArray(quayCount + 1)
+            val to = ArrayList<Int>(); val meters = ArrayList<Int>()
+            for (q in 0 until quayCount) {
+                repeat(d.varint()) { to += q + d.zigzag(); meters += d.varint() }
+                start[q + 1] = to.size
+            }
+            Footpaths(start, to.toIntArray(), meters.toIntArray())
+        } else {
+            null
+        }
+
         return TransitNetwork(
             formatVersion = version, feedId = feedId, validFrom = validFrom, dayCount = dayCount, timezone = timezone,
             routes = routes, stopPlaces = stopPlaces,
@@ -220,6 +245,7 @@ object NetworkFormat {
             tripServiceSet = tripSet, tripHeadsign = tripHeadsign, headsigns = headsigns,
             profileArrivals = profileArr.requireNoNulls(), profileDepartures = profileDep.requireNoNulls(),
             serviceSets = serviceSets, vjNumbers = vjNumbers, vjTrips = vjTrips, shapes = shapes,
+            footpaths = footpaths,
         )
     }
 
