@@ -6,8 +6,9 @@ import androidx.room.PrimaryKey
 /**
  * Room-persisted user favorite, fully local, never sent to any server (table `favorites`).
  *
- * [id] is a UUID string. [stopId] is a GTFS StopPlace id (`FR_NAOLIB:StopPlace:<n>`). [lineId] is
- * the GTFS route id `FR_NAOLIB:Line:<short name>`. [type] mirrors [com.bustramnantes.app.domain.model.FavoriteType]'s
+ * [id] is a UUID string. [stopId] is a GTFS StopPlace id (`FR_NAOLIB:StopPlace:<n>`); when a newer
+ * publication retires it, `FavoriteRekeyer` moves the favorite to its successor and keeps the old id
+ * in [legacyStopId]. [lineId] is the GTFS route id `FR_NAOLIB:Line:<short name>`. [type] mirrors [com.bustramnantes.app.domain.model.FavoriteType]'s
  * `name` (`"STOP"` | `"STOP_LINE"` | `"STOP_LINE_DIRECTION"`). [lineId]/[lineShortName]/
  * [lineColor]/[lineTextColor] are null for [com.bustramnantes.app.domain.model.FavoriteType.STOP].
  * [direction] is null unless type is `STOP_LINE_DIRECTION`. [position] is the user-defined sort
@@ -28,4 +29,6 @@ data class FavoriteEntity(
     val directionName: String? = null,
     val position: Int,
     val addedAt: Long,
+    /** The retired StopPlace id this favorite was saved with, if re-keyed (nullable; added in DB v6). */
+    val legacyStopId: String? = null,
 )

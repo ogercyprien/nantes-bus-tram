@@ -48,6 +48,7 @@ private fun FavoriteEntity.toDomain(): Favorite = Favorite(
     directionName = directionName,
     position = position,
     addedAt = addedAt,
+    legacyStopId = legacyStopId,
 )
 
 private fun Favorite.toEntity(): FavoriteEntity = FavoriteEntity(
@@ -63,4 +64,5 @@ private fun Favorite.toEntity(): FavoriteEntity = FavoriteEntity(
     directionName = directionName,
     position = position,
     addedAt = addedAt,
+    legacyStopId = legacyStopId,
 )

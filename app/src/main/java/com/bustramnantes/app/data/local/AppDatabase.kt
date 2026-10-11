@@ -19,7 +19,7 @@ import com.bustramnantes.app.data.local.entity.RecentSearchEntity
         FavoriteEntity::class,
         RecentSearchEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -75,6 +75,17 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE recent_search ADD COLUMN lat REAL")
                 db.execSQL("ALTER TABLE recent_search ADD COLUMN lon REAL")
+            }
+        }
+
+        /**
+         * v5 → v6: adds `favorites.legacyStopId` (nullable), the StopPlace id a favorite was saved
+         * with when a newer GTFS publication retired it. The new id can't be worked out in SQL (it
+         * needs the network): `FavoriteRekeyer` does that at startup and fills this column.
+         */
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE favorites ADD COLUMN legacyStopId TEXT")
             }
         }
     }

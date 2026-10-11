@@ -35,4 +35,6 @@ data class Favorite(
     val directionName: String?,
     val position: Int,
     val addedAt: Long,
+    /** StopPlace id the favorite was saved with, when a newer GTFS publication retired it. */
+    val legacyStopId: String? = null,
 )
