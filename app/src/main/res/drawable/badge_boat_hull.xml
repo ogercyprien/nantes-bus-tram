@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Boat badge outline (Navibus, bacs) for the Glance widget; tinted with the line colour.
+     Same geometry as BoatHullShape in LineBadge.kt (viewport 46 x 28). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="46dp"
+    android:height="28dp"
+    android:viewportWidth="46"
+    android:viewportHeight="28">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M0.00,2.80 L36.80,2.80 C41.40,1.68 44.16,0.56 46.00,0.00 C42.78,15.40 37.72,28.00 31.28,28.00 L4.60,28.00 C2.30,28.00 0.92,16.80 0.00,2.80 Z" />
+</vector>
