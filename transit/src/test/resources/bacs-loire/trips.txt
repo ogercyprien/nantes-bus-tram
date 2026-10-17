@@ -1,0 +1,9 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,shape_id
+ROUTE_BI_IND,SEMAINE,TRIP_BI_IND_S,Basse-Indre → Indret,0,BL44BII_A
+ROUTE_BI_IND,SEMAINE,TRIP_IND_BI_S,Indret → Basse-Indre,1,BL44BII_R
+ROUTE_BI_IND,WEEKEND_JF,TRIP_BI_IND_W,Basse-Indre → Indret,0,BL44BII_A
+ROUTE_BI_IND,WEEKEND_JF,TRIP_IND_BI_W,Indret → Basse-Indre,1,BL44BII_R
+ROUTE_CO_PEL,SEMAINE,TRIP_CO_PEL_S,Couëron → Le Pellerin,0,BL44CLP_A
+ROUTE_CO_PEL,SEMAINE,TRIP_PEL_CO_S,Le Pellerin → Couëron,1,BL44CLP_R
+ROUTE_CO_PEL,WEEKEND_JF,TRIP_CO_PEL_W,Couëron → Le Pellerin,0,BL44CLP_A
+ROUTE_CO_PEL,WEEKEND_JF,TRIP_PEL_CO_W,Le Pellerin → Couëron,1,BL44CLP_R

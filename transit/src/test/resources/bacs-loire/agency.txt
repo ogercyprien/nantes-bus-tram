@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_phone
+BL44.CBL44,Compagnie des Bacs de Loire,https://inforoutes.loire-atlantique.fr/jcms/bacs-de-loire-fr-dev_5006,Europe/Paris,+33240860129

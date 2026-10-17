@@ -1,0 +1,5 @@
+stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station,wheelchair_boarding,stop_timezone
+1,,Le Pellerin,,47.203247,-1.755383,,,0,,1,
+2,,Couëron,,47.205753,-1.751956,,,0,,1,
+3,,Basse-Indre,,47.197468,-1.673582,,,0,,1,
+4,,Indret,,47.195423,-1.675371,,,0,,1,

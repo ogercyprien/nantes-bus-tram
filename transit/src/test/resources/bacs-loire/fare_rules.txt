@@ -1,0 +1,3 @@
+fare_id,route_id,origin_id,destination_id,contains_id
+TARIF_GRATUIT,ROUTE_BI_IND,,,
+TARIF_GRATUIT,ROUTE_CO_PEL,,,

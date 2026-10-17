@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type
+ROUTE_BI_IND,BL44.CBL44,B1,Basse-Indre <> Indret,4
+ROUTE_CO_PEL,BL44.CBL44,B2,Couëron <> Le Pellerin,4
