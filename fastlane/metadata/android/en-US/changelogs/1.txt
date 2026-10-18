@@ -1,0 +1,9 @@
+First release.
+
+- Map of Naolib lines and stops
+- Stop search (stops and addresses)
+- Stop detail with lines, directions and real-time departures
+- Favourites (stop / line / line + direction)
+- Home-screen widget for a favourite stop
+- Itinerary planning
+- Offline-first: bundled and cached stops and lines

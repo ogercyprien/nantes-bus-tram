@@ -1,0 +1,25 @@
+Bus et Tram Nantes is a fast, offline-first companion for the Naolib public
+transport network in Nantes, France (bus, tram and busway).
+
+It is an independent, community-built alternative to the official Naolib app,
+focused on speed, a clean interface and working without a connection whenever
+possible.
+
+Features:
+
+* Interactive map of every Naolib line and stop, with lines drawn in their real
+  colours and de-overlapped where several routes share the road.
+* Unified search across stops and addresses.
+* Stop detail with all lines and directions and the next real-time departures.
+* Favourites: save a whole stop, a single line, or a specific line + direction.
+* A home-screen widget showing the next departures for a favourite stop.
+* Itinerary planning between two points, computed on the phone.
+* Offline-first: stops, lines and timetables (Nantes Métropole open-data GTFS)
+  are bundled with the app and updated automatically, so the map, search,
+  timetables and itineraries work without a connection.
+
+Real-time departures come from the open Okina feed; the app contains no ads,
+no tracking and no analytics.
+
+This app is not affiliated with, endorsed by, or connected to Semitan or
+Naolib.

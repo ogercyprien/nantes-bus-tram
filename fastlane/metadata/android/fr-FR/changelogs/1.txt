@@ -1,0 +1,9 @@
+Première version.
+
+- Carte des lignes et arrêts Naolib
+- Recherche d'arrêts (arrêts et adresses)
+- Détail d'un arrêt avec lignes, directions et passages en temps réel
+- Favoris (arrêt / ligne / ligne + direction)
+- Widget d'écran d'accueil pour un arrêt favori
+- Calcul d'itinéraire
+- Hors ligne d'abord : arrêts et lignes fournis et mis en cache

@@ -1,0 +1,26 @@
+PLACEHOLDER IMAGES — REPLACE BEFORE SUBMITTING TO F-DROID
+=========================================================
+
+The .png files in this folder are solid-colour PLACEHOLDERS generated only so
+the metadata structure is complete and lints. They are NOT the real app assets.
+You must replace each one with a real image (same filename, same folder). PNG or
+JPG are both accepted.
+
+Required / expected files and dimensions:
+
+  icon.png                    512 x 512    (app icon; export a raster from the
+                                            adaptive launcher icon)
+  phoneScreenshots/1.png      any size     (real screenshot from a device)
+  phoneScreenshots/2.png      any size     (add more: 3.png, 4.png, ...)
+
+Optional but recommended:
+
+  featureGraphic.png          1024 x 500   (banner shown on the app page)
+
+Notes:
+- Screenshots must be captured on a device/emulator (not possible in the build
+  sandbox). Add as many as you like, numbered sequentially.
+- These same images are used for every locale unless a locale provides its own
+  images/ folder. If the French store listing (../../fr-FR/images/) should show
+  different screenshots, create that folder and drop localized images there.
+- Delete this note file once the real images are in place.

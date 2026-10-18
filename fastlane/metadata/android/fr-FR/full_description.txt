@@ -1,0 +1,29 @@
+Bus et Tram Nantes est un compagnon rapide et « hors ligne d'abord » pour le
+réseau de transport en commun Naolib à Nantes (bus, tram et busway).
+
+C'est une alternative indépendante et communautaire à l'application officielle
+Naolib, pensée pour la rapidité, une interface claire et un fonctionnement sans
+connexion autant que possible.
+
+Fonctionnalités :
+
+* Carte interactive de toutes les lignes et de tous les arrêts Naolib, avec les
+  lignes affichées dans leurs vraies couleurs et décalées lorsque plusieurs
+  itinéraires empruntent la même voie.
+* Recherche unifiée par arrêt et par adresse.
+* Détail d'un arrêt avec toutes les lignes, les directions et les prochains
+  passages en temps réel.
+* Favoris : enregistrez un arrêt complet, une seule ligne, ou une ligne +
+  direction précise.
+* Un widget d'écran d'accueil affichant les prochains passages d'un arrêt favori.
+* Calcul d'itinéraire entre deux points, directement sur le téléphone.
+* Hors ligne d'abord : les arrêts, les lignes et les horaires (données ouvertes
+  GTFS de Nantes Métropole) sont fournis avec l'application et mis à jour
+  automatiquement, afin que la carte, la recherche, les horaires et les
+  itinéraires fonctionnent sans connexion.
+
+Le temps réel vient du flux ouvert Okina ; l'application ne contient aucune
+publicité, aucun pistage ni aucune analyse d'audience.
+
+Cette application n'est ni affiliée, ni approuvée, ni liée à la Semitan ou à
+Naolib.
