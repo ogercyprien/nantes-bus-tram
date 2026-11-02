@@ -62,6 +62,9 @@ sealed interface HomeEvent {
     /** "Voir l'arrêt" menu item. */
     data class ViewStopClicked(val favoriteId: String) : HomeEvent
 
+    /** "Modifier" menu item - opens the favorite's stop with its editor up. */
+    data class EditFavoriteClicked(val favoriteId: String) : HomeEvent
+
     /** "Supprimer" menu item. */
     data class DeleteFavoriteClicked(val favoriteId: String) : HomeEvent
 
@@ -89,6 +92,8 @@ sealed interface HomeEffect {
         val stopId: String,
         val lineId: String?,
         val direction: String?,
+        /** Set by "Modifier": the Stop Detail sheet opens on this favorite's editor. */
+        val editFavoriteId: String? = null,
     ) : HomeEffect
 
     data class ShowUndoSnackbar(val stopName: String) : HomeEffect
@@ -174,6 +179,10 @@ class HomeViewModel @Inject constructor(
             is HomeEvent.ViewStopClicked -> {
                 updateContent { it.copy(menuOpenFavoriteId = null) }
                 openStopDetail(event.favoriteId)
+            }
+            is HomeEvent.EditFavoriteClicked -> {
+                updateContent { it.copy(menuOpenFavoriteId = null) }
+                openStopDetail(event.favoriteId, edit = true)
             }
             is HomeEvent.DeleteFavoriteClicked -> deleteFavorite(event.favoriteId)
             HomeEvent.UndoDeleteClicked -> undoDelete()
@@ -316,13 +325,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun openStopDetail(favoriteId: String) {
+    private fun openStopDetail(favoriteId: String, edit: Boolean = false) {
         val favorite = favorites.find { it.id == favoriteId } ?: return
         emitEffect(
             HomeEffect.NavigateToStopDetail(
                 stopId = favorite.stopId,
                 lineId = favorite.lineId,
                 direction = favorite.direction,
+                editFavoriteId = favorite.id.takeIf { edit },
             ),
         )
     }

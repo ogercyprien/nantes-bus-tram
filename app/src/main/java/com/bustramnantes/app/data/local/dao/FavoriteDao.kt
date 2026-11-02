@@ -56,5 +56,8 @@ interface FavoriteDao {
     suspend fun getAll(): List<FavoriteEntity>
 
     @Update
+    suspend fun update(favorite: FavoriteEntity)
+
+    @Update
     suspend fun updateAll(favorites: List<FavoriteEntity>)
 }

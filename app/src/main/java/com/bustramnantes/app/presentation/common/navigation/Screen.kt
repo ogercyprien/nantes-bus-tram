@@ -25,7 +25,8 @@ private const val SEARCH_ROUTE_PATTERN = "search?prefillMode={prefillMode}&prefi
     "&prefillLabel={prefillLabel}&prefillLat={prefillLat}&prefillLon={prefillLon}" +
     "&prefillTarget={prefillTarget}"
 private const val STOP_DETAIL_ROUTE_PATTERN = "stop_detail/{stopId}?lineId={lineId}&direction={direction}" +
-    "&addressLabel={addressLabel}&addressLat={addressLat}&addressLon={addressLon}&lowered={lowered}"
+    "&addressLabel={addressLabel}&addressLat={addressLat}&addressLon={addressLon}&lowered={lowered}" +
+    "&editFavoriteId={editFavoriteId}"
 private const val ITINERARY_RESULTS_ROUTE_PATTERN = "itinerary_results?fromLabel={fromLabel}&fromLat={fromLat}" +
     "&fromLon={fromLon}&fromStopId={fromStopId}&toLabel={toLabel}&toLat={toLat}" +
     "&toLon={toLon}&toStopId={toStopId}&timeMode={timeMode}&departureAt={departureAt}"
@@ -140,6 +141,8 @@ sealed class Screen(val route: String) {
             // "true" when opened via "Voir sur la carte": the sheet opens at a low peek over the map
             // (draggable up) instead of expanded. See StopDetailBottomSheet.
             navArgument("lowered") { type = NavType.StringType; nullable = true; defaultValue = null },
+            // Home's "Modifier": the sheet opens with this favorite's editor already up.
+            navArgument("editFavoriteId") { type = NavType.StringType; nullable = true; defaultValue = null },
         )
 
         fun createRoute(
@@ -150,6 +153,7 @@ sealed class Screen(val route: String) {
             addressLat: Double? = null,
             addressLon: Double? = null,
             lowered: Boolean = false,
+            editFavoriteId: String? = null,
         ): String {
             val base = "stop_detail/${Uri.encode(stopId)}"
             val params = buildList {
@@ -159,6 +163,7 @@ sealed class Screen(val route: String) {
                 addressLat?.let { add("addressLat" to it.toString()) }
                 addressLon?.let { add("addressLon" to it.toString()) }
                 if (lowered) add("lowered" to "true")
+                editFavoriteId?.let { add("editFavoriteId" to it) }
             }
             if (params.isEmpty()) return base
             val query = params.joinToString("&") { (key, value) -> "$key=${Uri.encode(value)}" }

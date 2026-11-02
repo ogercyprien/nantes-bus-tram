@@ -56,7 +56,8 @@ data class StopDetailUiState(
     val openDisruption: Disruption? = null,
 
     val favoritesForStop: List<Favorite> = emptyList(),
-    val showFavoriteDialog: Boolean = false,
+    /** The favorite dialog shown over the sheet, if any (see [FavoriteDialog]). */
+    val favoriteDialog: FavoriteDialog? = null,
     val isSavingFavorite: Boolean = false,
 ) {
     val displayName: String get() = stop?.name ?: addressLabel ?: "Arrêt"
@@ -68,6 +69,20 @@ data class StopDetailUiState(
 
     /** Whether the departures section should render at all (address-only mode has none). */
     val showDeparturesSection: Boolean get() = !addressMode
+}
+
+/**
+ * The favorite dialogs behind the star action. With no favorite at the stop the star opens [Add]
+ * directly; otherwise [Manage] ("Favoris à …"), from which [Add] and [Edit] are reached - and
+ * "Annuler" there goes back to it ([fromManage]).
+ */
+sealed interface FavoriteDialog {
+    data object Manage : FavoriteDialog
+
+    data class Add(val fromManage: Boolean) : FavoriteDialog
+
+    /** Rewrites favorite [favoriteId] in place; also opened straight from Home's "Modifier". */
+    data class Edit(val favoriteId: String, val fromManage: Boolean) : FavoriteDialog
 }
 
 /** The real-time state of a Stop Detail board, as told to the rider above the departures. */
@@ -93,7 +108,19 @@ sealed interface StopDetailEvent {
     /** Star icon tapped in the actions row. */
     data object FavoriteActionClicked : StopDetailEvent
 
-    /** A specific granularity chosen (or re-chosen to remove) inside [FavoriteGranularityDialog]. */
+    /** "Ajouter un favori à cet arrêt" in [StopFavoritesDialog]. */
+    data object AddFavoriteClicked : StopDetailEvent
+
+    /** "Modifier" on a favorite row of [StopFavoritesDialog]. */
+    data class EditFavoriteClicked(val favoriteId: String) : StopDetailEvent
+
+    /** "Retirer" on a favorite row, or "Retirer ce favori" in the editor. */
+    data class RemoveFavoriteClicked(val favorite: Favorite) : StopDetailEvent
+
+    /** "Annuler" on the "Favori retiré" snackbar: puts [favorite] back as it was. */
+    data class UndoRemoveFavoriteClicked(val favorite: Favorite) : StopDetailEvent
+
+    /** "Enregistrer" in [FavoriteGranularityDialog]: adds, or rewrites the edited favorite. */
     data class FavoriteGranularityChosen(
         val type: FavoriteType,
         val lineId: String?,
@@ -124,7 +151,12 @@ sealed interface StopDetailEvent {
 /** One-shot side effects, delivered via SharedFlow. */
 sealed interface StopDetailEffect {
     data class NavigateToSearch(val route: String) : StopDetailEffect
-    data class ShowMessage(val message: String) : StopDetailEffect
+    /** A snackbar; with [actionLabel], tapping it sends [action] back to the ViewModel. */
+    data class ShowMessage(
+        val message: String,
+        val actionLabel: String? = null,
+        val action: StopDetailEvent? = null,
+    ) : StopDetailEffect
 
     /** Open the map centered on this stop (preselected + search bar prefilled), sheet lowered. */
     data class ShowOnMap(val stopId: String, val stopName: String) : StopDetailEffect

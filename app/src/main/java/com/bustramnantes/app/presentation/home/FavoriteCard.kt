@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SwapVert
@@ -54,8 +55,8 @@ import kotlin.math.roundToLong
  * header (stop name + line badge + direction), departure rows, real-time indicator, last-updated
  * footer, and a `"Fin de service"` state.
  *
- * Interaction: tap opens Stop Detail; long-press opens the "Voir l'arrêt / Réorganiser /
- * Supprimer" context menu. While [isReorderMode] is `true`, long-press is disabled
+ * Interaction: tap opens Stop Detail; long-press opens the "Voir l'arrêt / Modifier / Réorganiser /
+ * Supprimer" context menu ("Modifier" opens Stop Detail on the favorite's editor). While [isReorderMode] is `true`, long-press is disabled
  * and up/down move controls are shown instead - see `HomeScreen.kt` for why this project uses an
  * up/down fallback rather than a full pointer-drag gesture for reordering.
  */
@@ -248,6 +249,11 @@ fun FavoriteCard(
                 text = { Text("Voir l'arrêt") },
                 leadingIcon = { Icon(Icons.Filled.Visibility, contentDescription = null) },
                 onClick = { onEvent(HomeEvent.ViewStopClicked(favorite.id)) },
+            )
+            DropdownMenuItem(
+                text = { Text("Modifier") },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                onClick = { onEvent(HomeEvent.EditFavoriteClicked(favorite.id)) },
             )
             DropdownMenuItem(
                 text = { Text("Réorganiser") },

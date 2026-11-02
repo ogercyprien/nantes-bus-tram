@@ -38,11 +38,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -126,7 +128,10 @@ fun StopDetailBottomSheet(
                 is StopDetailEffect.NavigateToSearch -> onNavigateToSearch(effect.route)
                 is StopDetailEffect.ShowOnMap -> onShowOnMap(effect.stopId, effect.stopName)
                 is StopDetailEffect.OpenTimetable -> onOpenTimetable(effect)
-                is StopDetailEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+                is StopDetailEffect.ShowMessage -> {
+                    val result = snackbarHostState.showSnackbar(effect.message, actionLabel = effect.actionLabel)
+                    if (result == SnackbarResult.ActionPerformed) effect.action?.let(viewModel::onEvent)
+                }
             }
         }
     }
@@ -181,17 +186,46 @@ fun StopDetailSheetInner(
         )
     }
 
-    if (uiState.showFavoriteDialog) {
-        FavoriteGranularityDialog(
+    FavoriteDialogs(uiState = uiState, onEvent = onEvent)
+}
+
+/** Whichever favorite dialog [StopDetailUiState.favoriteDialog] asks for (see [FavoriteDialog]). */
+@Composable
+private fun FavoriteDialogs(uiState: StopDetailUiState, onEvent: (StopDetailEvent) -> Unit) {
+    val dismiss = { onEvent(StopDetailEvent.DismissFavoriteDialog) }
+    when (val dialog = uiState.favoriteDialog) {
+        null -> Unit
+        FavoriteDialog.Manage -> StopFavoritesDialog(
             stopName = uiState.displayName,
+            favorites = uiState.favoritesForStop,
             departureGroups = uiState.departureGroups,
-            initialLineId = uiState.focusedLineId,
-            initialDirection = uiState.focusedDirection,
-            existingFavorites = uiState.favoritesForStop,
-            isSaving = uiState.isSavingFavorite,
-            onConfirm = { onEvent(it) },
-            onDismiss = { onEvent(StopDetailEvent.DismissFavoriteDialog) },
+            onEdit = { onEvent(StopDetailEvent.EditFavoriteClicked(it.id)) },
+            onRemove = { onEvent(StopDetailEvent.RemoveFavoriteClicked(it)) },
+            onAdd = { onEvent(StopDetailEvent.AddFavoriteClicked) },
+            onDismiss = dismiss,
         )
+        is FavoriteDialog.Add, is FavoriteDialog.Edit -> {
+            val mode = when (dialog) {
+                is FavoriteDialog.Edit ->
+                    uiState.favoritesForStop.find { it.id == dialog.favoriteId }?.let(FavoritePickerMode::Edit)
+                else -> FavoritePickerMode.Add
+            } ?: return // The edited favorite isn't loaded (yet) - nothing to show.
+            // Keyed so moving between pickers starts each one afresh (its selection is `remember`ed).
+            key(dialog) {
+                FavoriteGranularityDialog(
+                    mode = mode,
+                    stopName = uiState.displayName,
+                    departureGroups = uiState.departureGroups,
+                    initialLineId = uiState.focusedLineId,
+                    initialDirection = uiState.focusedDirection,
+                    existingFavorites = uiState.favoritesForStop,
+                    isSaving = uiState.isSavingFavorite,
+                    onConfirm = { onEvent(it) },
+                    onRemove = { onEvent(StopDetailEvent.RemoveFavoriteClicked(it)) },
+                    onDismiss = dismiss,
+                )
+            }
+        }
     }
 }
 
@@ -303,8 +337,12 @@ private fun StopDetailActionsRow(
     ) {
         StopDetailActionButton(
             icon = if (uiState.hasAnyFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-            label = if (uiState.hasAnyFavorite) "Modifier le favori" else "Mettre en favori",
-            description = if (uiState.hasAnyFavorite) "Modifier ou retirer des favoris" else "Mettre en favori",
+            label = if (uiState.hasAnyFavorite) "Favoris (${uiState.favoritesForStop.size})" else "Mettre en favori",
+            description = if (uiState.hasAnyFavorite) {
+                "Gérer les favoris à cet arrêt ou en ajouter un"
+            } else {
+                "Mettre en favori"
+            },
             onClick = { onEvent(StopDetailEvent.FavoriteActionClicked) },
         )
         StopDetailActionButton(

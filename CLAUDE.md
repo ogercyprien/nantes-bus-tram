@@ -274,6 +274,17 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   pollers. Dialog entry points still seed it once from the `stopId` route arg. (The `lowered` route
   arg + transparent-scrim path is now dormant — kept but unused after the BottomSheetScaffold move.)
 
+## Favorites (Stop Detail star)
+- No favorite at the stop: the star ("Mettre en favori") opens the picker (`FavoriteGranularityDialog`,
+  Add mode). With some: "Favoris (n)" opens `StopFavoritesDialog` - "Gérer les favoris à cet arrêt" (a
+  row per favorite: Modifier / Retirer) + "Ajouter un favori à cet arrêt". State = `FavoriteDialog`
+  (`Manage | Add | Edit`); Annuler in Add/Edit returns to the list when opened from it.
+- **Modifier rewrites in place** (`UpdateFavoriteUseCase`): same id (home widgets are bound to it),
+  position and `addedAt`. Retirer is immediate + snackbar "Annuler" (`restoreFavorite`, back at its
+  Home position, Home's undo too). The picker's confirm never removes: an exact twin of another saved
+  favorite is disabled ("Déjà dans vos favoris"); overlaps (whole stop + a line) are allowed.
+- Home card menu "Modifier" opens Stop Detail with `editFavoriteId` (route arg) -> editor up at once.
+
 ## Conventions / gotchas
 - Match surrounding code style (heavy explanatory KDoc is the norm here).
 - Line colors: `Line.color` is stored WITHOUT `#`; `Departure.lineColor`/`ServedLine.lineColor` keep
@@ -312,6 +323,6 @@ Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `Realtim
 `StopMergeTest`, `RealtimeGatewayTest`, `RequestBudgetTest`, `LocalItineraryRepositoryTest`,
 `JourneyPhantomCheckTest`, `JourneyWalkTrimmingTest`, `DepartureGroupingTest`, `PhantomDeparturesTest`,
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,
-`JourneyShareTextTest`, `TimetableHourBlocksTest`, `GtfsRtDisruptionRepositoryTest`,
+`JourneyShareTextTest`, `TimetableHourBlocksTest`, `StopDetailFavoritesTest`, `GtfsRtDisruptionRepositoryTest`,
 `DisruptionRelevanceTest`, `StreetWalkPlanningTest`, … (`:transit` also `ServiceAlertsTest`,
 `WalkGraphTest`, `BacsDeLoireTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).

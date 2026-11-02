@@ -18,7 +18,9 @@ import com.bustramnantes.app.domain.repository.StopRepository
 import com.bustramnantes.app.domain.usecase.AddFavoriteUseCase
 import com.bustramnantes.app.domain.usecase.GetCachedStopLinesUseCase
 import com.bustramnantes.app.domain.usecase.GetStopTimetableUseCase
+import com.bustramnantes.app.domain.usecase.UpdateFavoriteUseCase
 import com.bustramnantes.app.domain.usecase.directionIdFromCode
+import com.bustramnantes.app.domain.usecase.home.RemoveFavoriteUseCase
 import com.bustramnantes.app.domain.util.StopDisruptions
 import com.bustramnantes.app.domain.util.forStop
 import com.bustramnantes.app.domain.util.normalizeForMatch
@@ -72,6 +74,8 @@ class StopDetailViewModel @Inject constructor(
     private val getStopTimetableUseCase: GetStopTimetableUseCase,
     private val getCachedStopLinesUseCase: GetCachedStopLinesUseCase,
     private val addFavoriteUseCase: AddFavoriteUseCase,
+    private val updateFavoriteUseCase: UpdateFavoriteUseCase,
+    private val removeFavoriteUseCase: RemoveFavoriteUseCase,
     private val disruptionRepository: DisruptionRepository,
     lineRepository: LineRepository,
 ) : ViewModel() {
@@ -89,11 +93,15 @@ class StopDetailViewModel @Inject constructor(
     private val addressLatArg: Double? = savedStateHandle.get<String>("addressLat")?.toDoubleOrNull()
     private val addressLonArg: Double? = savedStateHandle.get<String>("addressLon")?.toDoubleOrNull()
 
+    /** Home's "Modifier": open straight on the editor for this favorite (see [Screen.StopDetail]). */
+    private val editFavoriteIdArg: String? = savedStateHandle["editFavoriteId"]
+
     private val _uiState = MutableStateFlow(
         StopDetailUiState(
             stopId = currentStopId,
             focusedLineId = focusedLineId,
             focusedDirection = focusedDirection,
+            favoriteDialog = editFavoriteIdArg?.let { FavoriteDialog.Edit(it, fromManage = false) },
         ),
     )
     val uiState: StateFlow<StopDetailUiState> = _uiState.asStateFlow()
@@ -163,9 +171,17 @@ class StopDetailViewModel @Inject constructor(
 
     fun onEvent(event: StopDetailEvent) {
         when (event) {
-            StopDetailEvent.FavoriteActionClicked -> _uiState.update { it.copy(showFavoriteDialog = true) }
-            StopDetailEvent.DismissFavoriteDialog -> _uiState.update { it.copy(showFavoriteDialog = false) }
+            StopDetailEvent.FavoriteActionClicked -> showFavoriteDialog(
+                if (uiState.value.hasAnyFavorite) FavoriteDialog.Manage else FavoriteDialog.Add(fromManage = false),
+            )
+            StopDetailEvent.AddFavoriteClicked -> showFavoriteDialog(FavoriteDialog.Add(fromManage = true))
+            is StopDetailEvent.EditFavoriteClicked ->
+                showFavoriteDialog(FavoriteDialog.Edit(event.favoriteId, fromManage = true))
+            StopDetailEvent.DismissFavoriteDialog -> showFavoriteDialog(previousFavoriteDialog())
             is StopDetailEvent.FavoriteGranularityChosen -> onFavoriteGranularityChosen(event)
+            is StopDetailEvent.RemoveFavoriteClicked -> removeFavorite(event.favorite)
+            is StopDetailEvent.UndoRemoveFavoriteClicked ->
+                viewModelScope.launch { removeFavoriteUseCase.undo(event.favorite) }
             StopDetailEvent.PlanFromHereClicked -> emitPlanEffect(SearchPrefillTarget.DEPART)
             StopDetailEvent.PlanToHereClicked -> emitPlanEffect(SearchPrefillTarget.ARRIVE)
             StopDetailEvent.RetryDeparturesClicked -> restartTimetablePolling()
@@ -279,7 +295,8 @@ class StopDetailViewModel @Inject constructor(
             .onEach { favorites ->
                 allFavorites = favorites
                 _uiState.update { state ->
-                    state.copy(favoritesForStop = state.stop?.let(::favoritesOf) ?: favorites.filter { it.stopId == currentStopId })
+                    val forStop = state.stop?.let(::favoritesOf) ?: favorites.filter { it.stopId == currentStopId }
+                    state.copy(favoritesForStop = forStop, favoriteDialog = state.favoriteDialog?.stillValidWith(forStop))
                 }
             }
             .launchIn(viewModelScope)
@@ -318,13 +335,49 @@ class StopDetailViewModel @Inject constructor(
         startTimetablePolling()
     }
 
+    private fun showFavoriteDialog(dialog: FavoriteDialog?) = _uiState.update { it.copy(favoriteDialog = dialog) }
+
+    /** "Annuler" / back: an Add or Edit reached from "Favoris à …" returns to it, anything else closes. */
+    private fun previousFavoriteDialog(): FavoriteDialog? = when (val dialog = uiState.value.favoriteDialog) {
+        is FavoriteDialog.Add -> FavoriteDialog.Manage.takeIf { dialog.fromManage }
+        is FavoriteDialog.Edit -> FavoriteDialog.Manage.takeIf { dialog.fromManage }
+        FavoriteDialog.Manage, null -> null
+    }
+
+    /**
+     * Drops a dialog the favorites no longer support: "Favoris à …" once the last one is gone, an
+     * editor whose favorite was removed (Home, a widget, a re-key) - [Add] always stays.
+     */
+    private fun FavoriteDialog.stillValidWith(forStop: List<Favorite>): FavoriteDialog? = when (this) {
+        FavoriteDialog.Manage -> takeIf { forStop.isNotEmpty() }
+        is FavoriteDialog.Edit -> takeIf { forStop.any { it.id == favoriteId } }
+        is FavoriteDialog.Add -> this
+    }
+
+    /**
+     * "Enregistrer" in the picker: adds a favorite ([FavoriteDialog.Add]) or rewrites the edited one
+     * in place ([FavoriteDialog.Edit]). Either way every favorite dialog closes - the snackbar and the
+     * star say what happened.
+     */
     private fun onFavoriteGranularityChosen(choice: StopDetailEvent.FavoriteGranularityChosen) {
+        val dialog = uiState.value.favoriteDialog
         viewModelScope.launch {
             _uiState.update { it.copy(isSavingFavorite = true) }
-            val existing = findMatchingFavorite(choice.lineId, choice.direction)
-            if (existing != null) {
-                favoriteRepository.removeFavorite(existing.id)
-                _effects.emit(StopDetailEffect.ShowMessage("Favori retiré"))
+            val editing = (dialog as? FavoriteDialog.Edit)?.let { edit ->
+                uiState.value.favoritesForStop.find { it.id == edit.favoriteId }
+            }
+            if (editing != null) {
+                updateFavoriteUseCase(
+                    favorite = editing,
+                    type = choice.type,
+                    lineId = choice.lineId,
+                    lineShortName = choice.lineShortName,
+                    lineColor = choice.lineColor,
+                    lineTextColor = choice.lineTextColor,
+                    direction = choice.direction,
+                    directionName = choice.directionName,
+                )
+                _effects.emit(StopDetailEffect.ShowMessage("Favori modifié"))
             } else {
                 addFavoriteUseCase(
                     type = choice.type,
@@ -339,7 +392,26 @@ class StopDetailViewModel @Inject constructor(
                 )
                 _effects.emit(StopDetailEffect.ShowMessage("Favori ajouté"))
             }
-            _uiState.update { it.copy(isSavingFavorite = false, showFavoriteDialog = false) }
+            _uiState.update { it.copy(isSavingFavorite = false, favoriteDialog = null) }
+        }
+    }
+
+    /**
+     * "Retirer": immediate, undoable from the snackbar (restored with its id and Home position). From
+     * the editor it goes back to "Favoris à …" (or closes when opened from Home); the list itself
+     * stays open, and closes on its own once empty ([stillValidWith]).
+     */
+    private fun removeFavorite(favorite: Favorite) {
+        if (uiState.value.favoriteDialog is FavoriteDialog.Edit) showFavoriteDialog(previousFavoriteDialog())
+        viewModelScope.launch {
+            removeFavoriteUseCase.remove(favorite)
+            _effects.emit(
+                StopDetailEffect.ShowMessage(
+                    message = "Favori retiré",
+                    actionLabel = "Annuler",
+                    action = StopDetailEvent.UndoRemoveFavoriteClicked(favorite),
+                ),
+            )
         }
     }
 
@@ -382,9 +454,6 @@ class StopDetailViewModel @Inject constructor(
             )
         }
     }
-
-    private fun findMatchingFavorite(lineId: String?, direction: String?): Favorite? =
-        uiState.value.favoritesForStop.find { it.lineId == lineId && it.direction == direction }
 
     private fun emitPlanEffect(target: SearchPrefillTarget) {
         val state = uiState.value

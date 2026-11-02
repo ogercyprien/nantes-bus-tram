@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -329,7 +330,10 @@ fun MapScreen(
                         stopName = effect.stopName,
                     ),
                 )
-                is StopDetailEffect.ShowMessage -> scope.launch { snackbarHostState.showSnackbar(effect.message) }
+                is StopDetailEffect.ShowMessage -> scope.launch {
+                    val result = snackbarHostState.showSnackbar(effect.message, actionLabel = effect.actionLabel)
+                    if (result == SnackbarResult.ActionPerformed) effect.action?.let(stopDetailViewModel::onEvent)
+                }
             }
         }
     }

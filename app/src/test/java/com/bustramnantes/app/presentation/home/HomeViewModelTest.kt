@@ -63,6 +63,8 @@ class HomeViewModelTest {
         override fun observeFavorites(): Flow<List<Favorite>> = flowOf(listOf(favorite))
         override suspend fun getFavoriteById(id: String): Favorite? = favorite
         override suspend fun addFavorite(favorite: Favorite) = Unit
+        override suspend fun updateFavorite(favorite: Favorite) = Unit
+        override suspend fun restoreFavorite(favorite: Favorite) = Unit
         override suspend fun removeFavorite(favoriteId: String) = Unit
         override suspend fun reorderFavorites(orderedFavoriteIds: List<String>) = Unit
         override suspend fun clearAllFavorites() = Unit

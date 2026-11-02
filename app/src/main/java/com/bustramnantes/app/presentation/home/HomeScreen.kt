@@ -62,7 +62,8 @@ import com.bustramnantes.app.presentation.common.components.OfflineAwareContent
  *
  * @param onNavigateToSearch empty-state CTA - navigates to the Recherche tab.
  * @param onNavigateToStopDetail opens the Stop Detail bottom sheet for a
- * favorite's stop, optionally pre-focusing a line/direction.
+ * favorite's stop, optionally pre-focusing a line/direction - and, for the card menu's "Modifier",
+ * with that favorite's editor open (`editFavoriteId`).
  * @param onNavigateToSettings top-right icon.
  * @param onNavigateToDisruptions the "Perturbations" icon next to it.
  */
@@ -70,7 +71,7 @@ import com.bustramnantes.app.presentation.common.components.OfflineAwareContent
 @Composable
 fun HomeScreen(
     onNavigateToSearch: () -> Unit,
-    onNavigateToStopDetail: (stopId: String, lineId: String?, direction: String?) -> Unit,
+    onNavigateToStopDetail: (stopId: String, lineId: String?, direction: String?, editFavoriteId: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDisruptions: () -> Unit,
     modifier: Modifier = Modifier,
@@ -100,7 +101,7 @@ fun HomeScreen(
             when (effect) {
                 HomeEffect.NavigateToSearch -> onNavigateToSearch()
                 is HomeEffect.NavigateToStopDetail ->
-                    onNavigateToStopDetail(effect.stopId, effect.lineId, effect.direction)
+                    onNavigateToStopDetail(effect.stopId, effect.lineId, effect.direction, effect.editFavoriteId)
                 is HomeEffect.ShowUndoSnackbar -> {
                     val result = snackbarHostState.showSnackbar(
                         message = "Favori supprimé : ${effect.stopName}",

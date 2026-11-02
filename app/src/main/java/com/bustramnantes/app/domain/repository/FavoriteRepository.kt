@@ -14,6 +14,18 @@ interface FavoriteRepository {
     /** Inserts [favorite] at the end of the current ordering (highest [Favorite.position] + 1). */
     suspend fun addFavorite(favorite: Favorite)
 
+    /**
+     * Rewrites an existing favorite in place ("Modifier le favori"): same [Favorite.id] - so a home
+     * widget bound to it follows the new configuration - and same [Favorite.position] on Home.
+     */
+    suspend fun updateFavorite(favorite: Favorite)
+
+    /**
+     * Puts back a just-removed favorite exactly as it was, [Favorite.position] included (the
+     * snackbar "Annuler"), unlike [addFavorite] which appends it at the end.
+     */
+    suspend fun restoreFavorite(favorite: Favorite)
+
     suspend fun removeFavorite(favoriteId: String)
 
     /**

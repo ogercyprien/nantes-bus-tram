@@ -27,6 +27,11 @@ class FavoriteRepositoryImpl @Inject constructor(
         favoriteDao.insertAtEnd(favorite.toEntity())
     }
 
+    override suspend fun updateFavorite(favorite: Favorite) = favoriteDao.update(favorite.toEntity())
+
+    // Positions are a plain sort key (no uniqueness), so the old slot can be taken back as is.
+    override suspend fun restoreFavorite(favorite: Favorite) = favoriteDao.insert(favorite.toEntity())
+
     override suspend fun removeFavorite(favoriteId: String) = favoriteDao.delete(favoriteId)
 
     override suspend fun reorderFavorites(orderedFavoriteIds: List<String>) =

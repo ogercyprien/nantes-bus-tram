@@ -49,8 +49,10 @@ fun AppNavGraph(
                 onNavigateToSearch = {
                     navController.navigateToTab(Screen.Search.createRoute(prefillMode = SearchPrefillMode.STOP))
                 },
-                onNavigateToStopDetail = { stopId, lineId, direction ->
-                    navController.navigate(Screen.StopDetail.createRoute(stopId, lineId, direction))
+                onNavigateToStopDetail = { stopId, lineId, direction, editFavoriteId ->
+                    navController.navigate(
+                        Screen.StopDetail.createRoute(stopId, lineId, direction, editFavoriteId = editFavoriteId),
+                    )
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
