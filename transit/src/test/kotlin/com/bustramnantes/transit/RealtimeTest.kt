@@ -122,6 +122,20 @@ class RealtimeTest {
     }
 
     @Test
+    fun `after-midnight run matched by SIRI is not shown again from the timetable`() {
+        // 104-WEEK runs at 24:50 on Tuesday's service day (Wednesday 00:50), and WEEK is active on
+        // Wednesday too: the visit must resolve to Tuesday's run, not Wednesday's.
+        val composer = BoardComposer(net, horizonSeconds = 3600)
+        val now = at(23, 55)
+        val run = at(0, 50) + 86_400
+        val visits = listOf(visit("FR_NAOLIB:VehicleJourney:104-WEEK", "FR_NAOLIB:Quay:11", run + 60, aimed = run))
+        val board = composer.composeWithSiri(quays(1), visits, now)
+        assertEquals(1, board.size)
+        assertEquals(EntrySource.SIRI, board[0].source)
+        assertEquals(BoardComposer.tripKey(net.resolveTripId("FR_NAOLIB:VehicleJourney:104-WEEK", tuesday)!!, tuesday), board[0].tripKey)
+    }
+
+    @Test
     fun `real-time flag needs SIRI presence within the horizon`() {
         val composer = BoardComposer(net, horizonSeconds = 7200, realtimeHorizonSeconds = 50 * 60)
         val now = at(7, 30)

@@ -2,6 +2,7 @@ package com.bustramnantes.transit.realtime
 
 import com.bustramnantes.transit.TransitNetwork
 import com.bustramnantes.transit.scheduledCalls
+import com.bustramnantes.transit.serviceDayStart
 import java.time.Instant
 import java.time.ZoneId
 
@@ -168,13 +169,33 @@ class BoardComposer(
         return scheduled + delay
     }
 
-    /** (unique trip, service day) for an original trip id, trying the day of [aroundEpochSecond] and the day before. */
+    /**
+     * (unique trip, service day) for an original trip id running around [aroundEpochSecond].
+     *
+     * The calendar date of that instant is not enough: a run timetabled past midnight (C2 at 24:20 =
+     * 00:20) belongs to the **previous** service day, yet a weekday vehicle journey is usually active on
+     * the next date too - picking that date gave the SIRI visit the key `trip@tomorrow` while the
+     * timetable call carried `trip@today`, and the same bus showed twice (real time + theoretical).
+     * So every candidate day (the date and the day before) is tried and the one whose run actually
+     * spans that instant (closest, for a late/early vehicle) wins.
+     */
     private fun resolve(tripId: String, aroundEpochSecond: Long): Pair<Int, java.time.LocalDate>? {
         val date = Instant.ofEpochSecond(aroundEpochSecond).atZone(zone).toLocalDate()
+        var best: Pair<Int, java.time.LocalDate>? = null
+        var bestDistance = Long.MAX_VALUE
         for (day in listOf(date, date.minusDays(1))) {
-            network.resolveTripId(tripId, day)?.let { return it to day }
+            val trip = network.resolveTripId(tripId, day) ?: continue
+            val base = network.serviceDayStart(day)
+            val start = base + network.departureAt(trip, 0)
+            val end = base + network.arrivalAt(trip, network.patterns[network.tripPattern[trip]].quays.size - 1)
+            val distance = when {
+                aroundEpochSecond < start -> start - aroundEpochSecond
+                aroundEpochSecond > end -> aroundEpochSecond - end
+                else -> 0L
+            }
+            if (distance < bestDistance) { best = trip to day; bestDistance = distance }
         }
-        return null
+        return best
     }
 
     companion object {
