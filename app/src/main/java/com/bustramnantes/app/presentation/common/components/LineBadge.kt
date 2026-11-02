@@ -15,6 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -108,10 +111,22 @@ fun LineBadge(
         Text(
             text = shortName,
             color = foreground,
-            fontSize = metrics.fontSize,
-            fontWeight = MaterialTheme.typography.labelLarge.fontWeight,
             textAlign = TextAlign.Center,
             maxLines = 1,
+            // An explicit style, not the inherited LocalTextStyle: inside a TopAppBar title
+            // (titleLarge, 28sp line height) or a chip label the line box is taller than the badge,
+            // which pushed the number into the lower half. One-line box the size of the font,
+            // trimmed and centred, so the glyphs sit in the middle of the badge wherever it is.
+            style = TextStyle(
+                fontSize = metrics.fontSize,
+                fontWeight = MaterialTheme.typography.labelLarge.fontWeight,
+                lineHeight = metrics.fontSize,
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both,
+                ),
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+            ),
         )
     }
 }
