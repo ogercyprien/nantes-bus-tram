@@ -28,7 +28,7 @@ data class JourneyMapStop(
     val color: String,
 )
 
-/** Everything the journey map draws for one [Journey]. [origin]/[destination] = the A and B markers. */
+/** Everything the journey map draws for one [Journey]. [origin]/[destination] = the start and arrival markers. */
 data class JourneyMapModel(
     val legs: List<JourneyMapLeg>,
     val stops: List<JourneyMapStop>,
@@ -44,9 +44,9 @@ const val WALK_COLOR = "#455A64"
 
 /**
  * The map geometry of [journey]: each ride along its path (`tripGeometryWkt`, the OSM street path -
- * see `TransitNetwork.ridePath`), each walk along its street path, every served stop, and A/B = the
- * first and last point of the journey (the searched address, or the first/last stop when the search
- * started/ended at a stop). Null when the journey has no drawable geometry at all.
+ * see `TransitNetwork.ridePath`), each walk along its street path, every served stop, and the start and
+ * arrival markers at the first and last point of the journey (the searched address, or the first/last
+ * stop when the search started/ended at a stop). Null when the journey has no drawable geometry at all.
  */
 fun journeyMapModel(journey: Journey): JourneyMapModel? {
     val legs = ArrayList<JourneyMapLeg>()

@@ -11,6 +11,9 @@ import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
+import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
@@ -23,7 +26,6 @@ import org.maplibre.android.style.layers.PropertyFactory.textField
 import org.maplibre.android.style.layers.PropertyFactory.textFont
 import org.maplibre.android.style.layers.PropertyFactory.textHaloColor
 import org.maplibre.android.style.layers.PropertyFactory.textHaloWidth
-import org.maplibre.android.style.layers.PropertyFactory.textIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -35,7 +37,8 @@ import org.maplibre.geojson.Point
 /**
  * Sources, layers and GeoJSON for the itinerary maps (on top of the shared base style of
  * [com.bustramnantes.app.presentation.common.map.NaolibMapView]). Bottom to top: walks (dotted),
- * ride casings (white) and rides (line colour), served stops, transfer stops, line badges, A/B.
+ * ride casings (white) and rides (line colour), served stops, transfer stops, line badges, then the
+ * start (green dot) and the arrival (checkered dot).
  */
 object ItineraryMapLayers {
     const val SOURCE_LEGS = "itinerary-legs-source"
@@ -49,8 +52,9 @@ object ItineraryMapLayers {
     const val LAYER_STOPS = "itinerary-stops-layer"
     const val LAYER_TRANSFERS = "itinerary-transfers-layer"
     const val LAYER_BADGES = "itinerary-badges-layer"
-    const val LAYER_ENDPOINTS = "itinerary-endpoints-layer"
-    const val LAYER_ENDPOINT_LABELS = "itinerary-endpoint-labels-layer"
+    const val LAYER_START = "itinerary-start-layer"
+    const val LAYER_FINISH = "itinerary-finish-layer"
+    private const val IMAGE_FINISH = "itinerary-finish-image"
 
     const val PROP_KIND = "kind"
     const val PROP_COLOR = "color"
@@ -66,12 +70,17 @@ object ItineraryMapLayers {
     private const val KIND_WALK = "walk"
     private const val KIND_TRANSFER = "transfer"
     private const val KIND_STOP = "stop"
-    private const val ORIGIN_COLOR = "#212121"
-    private const val DESTINATION_COLOR = "#C62828"
+    private const val KIND_START = "start"
+    private const val KIND_FINISH = "finish"
+    private const val START_COLOR = "#2E9E44"
+    /** Start dot radius + white ring (dp); the finish dot is drawn the same size. */
+    private const val END_DOT_RADIUS_DP = 8f
+    private const val END_DOT_RING_DP = 3f
     private val FONT = arrayOf("Open Sans Bold", "Arial Unicode MS Bold")
 
-    /** Adds every itinerary source (empty) and layer to [style]. */
-    fun addTo(style: org.maplibre.android.maps.Style) {
+    /** Adds every itinerary source (empty), image and layer to [style]; [density] = screen density. */
+    fun addTo(style: org.maplibre.android.maps.Style, density: Float) {
+        style.addImage(IMAGE_FINISH, finishDot(density))
         for (id in listOf(SOURCE_LEGS, SOURCE_STOPS, SOURCE_BADGES, SOURCE_ENDPOINTS)) {
             style.addSource(GeoJsonSource(id, FeatureCollection.fromFeatures(emptyList())))
         }
@@ -150,27 +159,57 @@ object ItineraryMapLayers {
             },
         )
         style.addLayer(
-            CircleLayer(LAYER_ENDPOINTS, SOURCE_ENDPOINTS).apply {
+            CircleLayer(LAYER_START, SOURCE_ENDPOINTS).apply {
+                setFilter(match(get(PROP_KIND), literal(KIND_START), literal(true), literal(false)))
                 setProperties(
-                    circleRadius(10f),
-                    circleColor(toColor(get(PROP_COLOR))),
+                    circleRadius(END_DOT_RADIUS_DP),
+                    circleColor(toColor(literal(START_COLOR))),
                     circleStrokeColor(toColor(literal("#FFFFFF"))),
-                    circleStrokeWidth(2.5f),
+                    circleStrokeWidth(END_DOT_RING_DP),
                 )
             },
         )
         style.addLayer(
-            SymbolLayer(LAYER_ENDPOINT_LABELS, SOURCE_ENDPOINTS).apply {
+            SymbolLayer(LAYER_FINISH, SOURCE_ENDPOINTS).apply {
+                setFilter(match(get(PROP_KIND), literal(KIND_FINISH), literal(true), literal(false)))
                 setProperties(
-                    textField(get(PROP_LABEL)),
-                    textFont(FONT),
-                    textSize(12f),
-                    textColor(toColor(literal("#FFFFFF"))),
-                    textAllowOverlap(true),
-                    textIgnorePlacement(true),
+                    iconImage(IMAGE_FINISH),
+                    iconAllowOverlap(true),
+                    iconIgnorePlacement(true),
                 )
             },
         )
+    }
+
+    /**
+     * The arrival marker: a checkered (finish-flag) disc in a white ring, the size of the start dot.
+     * A circle layer can't carry a pattern, hence an icon drawn here.
+     */
+    private fun finishDot(density: Float): android.graphics.Bitmap {
+        val outer = (END_DOT_RADIUS_DP + END_DOT_RING_DP) * density
+        val size = kotlin.math.ceil(outer * 2).toInt()
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val c = size / 2f
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        paint.color = android.graphics.Color.WHITE
+        canvas.drawCircle(c, c, outer, paint)
+        val inner = END_DOT_RADIUS_DP * density
+        canvas.save()
+        canvas.clipPath(android.graphics.Path().apply { addCircle(c, c, inner, android.graphics.Path.Direction.CW) })
+        val cells = 4
+        val cell = 2 * inner / cells
+        for (i in 0 until cells) for (j in 0 until cells) {
+            paint.color = if ((i + j) % 2 == 0) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+            canvas.drawRect(c - inner + i * cell, c - inner + j * cell, c - inner + (i + 1) * cell, c - inner + (j + 1) * cell, paint)
+        }
+        canvas.restore()
+        // A hairline so the white squares don't melt into the white ring.
+        paint.style = android.graphics.Paint.Style.STROKE
+        paint.strokeWidth = density
+        paint.color = android.graphics.Color.parseColor("#424242")
+        canvas.drawCircle(c, c, inner, paint)
+        return bitmap
     }
 
     /** One line feature per leg, drawn [width] px wide at [opacity]. */
@@ -209,12 +248,8 @@ object ItineraryMapLayers {
 
     fun endpointFeatures(origin: MapPoint, destination: MapPoint): FeatureCollection = FeatureCollection.fromFeatures(
         listOf(
-            Feature.fromGeometry(Point.fromLngLat(origin.lon, origin.lat)).apply {
-                addStringProperty(PROP_LABEL, "A"); addStringProperty(PROP_COLOR, ORIGIN_COLOR)
-            },
-            Feature.fromGeometry(Point.fromLngLat(destination.lon, destination.lat)).apply {
-                addStringProperty(PROP_LABEL, "B"); addStringProperty(PROP_COLOR, DESTINATION_COLOR)
-            },
+            Feature.fromGeometry(Point.fromLngLat(origin.lon, origin.lat)).apply { addStringProperty(PROP_KIND, KIND_START) },
+            Feature.fromGeometry(Point.fromLngLat(destination.lon, destination.lat)).apply { addStringProperty(PROP_KIND, KIND_FINISH) },
         ),
     )
 

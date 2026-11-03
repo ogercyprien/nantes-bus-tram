@@ -14,18 +14,23 @@ import androidx.compose.ui.unit.dp
 import com.bustramnantes.app.presentation.common.map.NaolibMapView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Geometry
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.MultiLineString
 import kotlin.math.roundToInt
 
 /**
  * Every route of the results list on one map, each in its own colour ([OptionRoute.color], the bar on
  * its cards), side by side where they share a path ([OptionLanes]). With a [highlighted] route, it is
  * drawn wider and on top and the others fade. Tapping a route's line calls [onRouteTap] with its
- * index, tapping elsewhere with null.
+ * index - the line closest to the finger, so each lane of a shared stretch can be picked - tapping
+ * elsewhere with null.
  *
  * Lanes are laid out off the main thread for the current zoom, rounded to half a level (the offsets
  * are in map metres, so they are redone when the zoom moves on); the lane order is computed once per
@@ -48,17 +53,23 @@ fun ItineraryOptionsMap(
 
     NaolibMapView(
         onStyleLoaded = { m, s ->
-            ItineraryMapLayers.addTo(s)
+            ItineraryMapLayers.addTo(s, density.density)
             m.uiSettings.isRotateGesturesEnabled = false
             m.addOnCameraIdleListener { zoomBucket = (m.cameraPosition.zoom * 2).roundToInt() / 2.0 }
             m.addOnMapClickListener { latLng ->
                 val p = m.projection.toScreenLocation(latLng)
                 val r = TAP_TOLERANCE_DP * density.density
-                val hit = m.queryRenderedFeatures(
+                val features = m.queryRenderedFeatures(
                     android.graphics.RectF(p.x - r, p.y - r, p.x + r, p.y + r),
-                    ItineraryMapLayers.LAYER_RIDES, ItineraryMapLayers.LAYER_WALKS, ItineraryMapLayers.LAYER_RIDE_CASINGS,
-                ).firstNotNullOfOrNull { f -> f.getNumberProperty(ItineraryMapLayers.PROP_ROUTE)?.toInt() }
-                latestOnRouteTap(hit)
+                    ItineraryMapLayers.LAYER_RIDES, ItineraryMapLayers.LAYER_WALKS,
+                )
+                // Lanes side by side are a few dp apart, all inside the forgiving tap box: the route
+                // whose line passes closest to the finger wins, not the first one MapLibre lists.
+                val candidates = features.mapNotNull { f ->
+                    val route = f.getNumberProperty(ItineraryMapLayers.PROP_ROUTE)?.toInt() ?: return@mapNotNull null
+                    route to screenLines(m, f.geometry())
+                }
+                latestOnRouteTap(nearestRoute(p.x.toDouble(), p.y.toDouble(), candidates))
                 true
             }
             map = m
@@ -117,6 +128,18 @@ private const val LINE_WIDTH_DP = 4.5f
 private const val HIGHLIGHT_WIDTH_DP = 5.5f
 private const val FADED_OPACITY = 0.4f
 private const val TAP_TOLERANCE_DP = 14f
+
+/** A rendered line feature's geometry in screen pixels (one list per line part). */
+private fun screenLines(map: MapLibreMap, geometry: Geometry?): List<List<DoubleArray>> {
+    val parts = when (geometry) {
+        is LineString -> listOf(geometry.coordinates())
+        is MultiLineString -> geometry.coordinates()
+        else -> emptyList()
+    }
+    return parts.map { part ->
+        part.map { pt -> map.projection.toScreenLocation(LatLng(pt.latitude(), pt.longitude())).let { doubleArrayOf(it.x.toDouble(), it.y.toDouble()) } }
+    }
+}
 
 private fun JourneyMapLeg.toMercator(): OptionLanes.Leg {
     val xy = points.map { OptionLanes.toMercator(it.lat, it.lon) }

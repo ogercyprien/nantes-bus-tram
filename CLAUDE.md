@@ -192,8 +192,9 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   (`JourneyMap` on `NaolibMapView`) under a non-modal `BottomSheetScaffold` holding
   `JourneyDetailContent` (opens at half height, map pannable underneath). `journeyMapModel` (pure,
   tested) turns a `Journey` into legs (rides along their OSM path in the line colour with a white
-  casing and a line badge; walks dotted grey), stops (transfers larger, tappable -> Stop Detail) and
-  A/B = the journey's first/last point; the camera fits it above the sheet.
+  casing and a line badge; walks dotted grey), stops (transfers larger, tappable -> Stop Detail), a
+  green start dot and a checkered arrival dot (an icon drawn at runtime: a circle layer can't carry a
+  pattern) at the journey's first/last point; the camera fits it above the sheet.
 - **Results map**: the results list sits in a non-modal sheet (opens at 55 % of the screen, collapses
   to a strip showing the highlighted journey - tap it for the detail) over `ItineraryOptionsMap`:
   journeys are grouped by route (`optionRoutes`: same lines between the same stops = one line on the
@@ -201,9 +202,11 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   drawn **side by side** (`OptionLanes`, after LOOM - Bast/Brosi/Storandt): bundles within one lane at
   the map's scale with the same heading, 6 dp lanes, one global lane order searched exhaustively
   (≤ 7 routes) minimising join/leave crossings then keeping routes that share most next to each
-  other, offsets smoothed, tapered to 0 at A/B, loops cut on sharp turns. Computed off the main
+  other, offsets smoothed, tapered to 0 at the start/arrival dots, loops cut on sharp turns. Computed off the main
   thread in Web Mercator metres per half zoom level (order kept across zooms; ≤ 4,000 samples per
-  route, < 30 ms on a desktop JVM). Tapping a line highlights its route (`HighlightJourney`, wider, on
+  route, < 30 ms on a desktop JVM). A tap picks the line **closest to the finger** among those in the
+  14 dp tap box (`nearestRoute`, screen distance) - lanes are 6 dp apart, so the first feature MapLibre
+  lists would always win a shared stretch. Tapping a line highlights its route (`HighlightJourney`, wider, on
   top, others faded, list scrolls to its card); opening a journey highlights it too; the highlight
   survives the real-time recheck like the open journey (`rideKey`).
 - Date picker / "plus tôt·plus tard" capped at `min(today+90 d, installed feed's last day)`.

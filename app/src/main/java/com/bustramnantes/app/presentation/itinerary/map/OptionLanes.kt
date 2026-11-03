@@ -28,7 +28,7 @@ import kotlin.math.tan
  *     share the most distance next to each other. The order is computed once ([order]) and reused at
  *     every zoom ([layout]) so lanes don't swap while zooming;
  *  4. **smoothing** - offsets ramp in/out of bundles, taper to 0 at both ends (every option meets the
- *     A and B markers), and the small loops an offset line makes inside a sharp turn are cut out.
+ *     start and arrival markers), and the small loops an offset line makes inside a sharp turn are cut out.
  *
  * Geometry is in Web Mercator metres ([toMercator]) - the map's own projection, so an offset of n dp
  * is n × [unitsPerDp] there. Pure Kotlin, unit-tested; a few ms for 6 options.

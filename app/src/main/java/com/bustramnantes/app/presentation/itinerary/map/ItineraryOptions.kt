@@ -44,3 +44,30 @@ internal fun routeKey(journey: Journey): List<String> {
 /** The route (index into [routes]) each journey index belongs to. */
 fun routeOfJourney(routes: List<OptionRoute>): Map<Int, Int> =
     routes.flatMapIndexed { r, route -> route.journeyIndices.map { it to r } }.toMap()
+
+/**
+ * The route whose line passes closest to the screen point ([x], [y]) among [candidates] (route index,
+ * line parts as screen-pixel points), or null when there is none.
+ */
+internal fun nearestRoute(x: Double, y: Double, candidates: List<Pair<Int, List<List<DoubleArray>>>>): Int? {
+    var best: Int? = null
+    var bestDistance = Double.MAX_VALUE
+    for ((route, parts) in candidates) for (part in parts) {
+        for (k in 0 until part.size - 1) {
+            val d = pointSegmentDistance(x, y, part[k][0], part[k][1], part[k + 1][0], part[k + 1][1])
+            if (d < bestDistance) { bestDistance = d; best = route }
+        }
+        if (part.size == 1) {
+            val d = kotlin.math.hypot(part[0][0] - x, part[0][1] - y)
+            if (d < bestDistance) { bestDistance = d; best = route }
+        }
+    }
+    return best
+}
+
+private fun pointSegmentDistance(px: Double, py: Double, ax: Double, ay: Double, bx: Double, by: Double): Double {
+    val dx = bx - ax; val dy = by - ay
+    val l2 = dx * dx + dy * dy
+    val t = if (l2 == 0.0) 0.0 else (((px - ax) * dx + (py - ay) * dy) / l2).coerceIn(0.0, 1.0)
+    return kotlin.math.hypot(ax + t * dx - px, ay + t * dy - py)
+}

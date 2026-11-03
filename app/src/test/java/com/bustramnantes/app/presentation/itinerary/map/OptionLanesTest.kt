@@ -110,4 +110,15 @@ class OptionLanesTest {
         assertEquals(OPTION_COLORS[1], routes[1].color)
         assertEquals(mapOf(0 to 0, 2 to 0, 1 to 1), routeOfJourney(routes))
     }
+
+    @Test
+    fun `a tap picks the lane closest to the finger`() {
+        // Three lanes 6 px apart, horizontal, listed in an arbitrary order.
+        fun lane(y: Double) = listOf(listOf(doubleArrayOf(0.0, y), doubleArrayOf(100.0, y)))
+        val candidates = listOf(2 to lane(112.0), 0 to lane(100.0), 1 to lane(106.0))
+        assertEquals(0, nearestRoute(50.0, 99.0, candidates))
+        assertEquals(1, nearestRoute(50.0, 105.0, candidates))
+        assertEquals(2, nearestRoute(50.0, 115.0, candidates))
+        assertEquals(null, nearestRoute(50.0, 100.0, emptyList()))
+    }
 }

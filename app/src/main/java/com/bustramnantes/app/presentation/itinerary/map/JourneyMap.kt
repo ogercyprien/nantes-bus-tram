@@ -22,7 +22,8 @@ import org.maplibre.geojson.FeatureCollection
 
 /**
  * One journey on a map (the journey detail view): each ride along its street path in its line
- * colour with a white casing and a line badge, walks dotted, served stops, transfer stops, A and B.
+ * colour with a white casing and a line badge, walks dotted, served stops, transfer stops, the start
+ * (green dot) and the arrival (checkered dot).
  * The camera fits the journey inside the part of the map left visible above [bottomInset] (the sheet
  * covering the bottom of the map). Tapping a stop calls [onStopClick] with its id.
  */
@@ -40,7 +41,7 @@ fun JourneyMap(
 
     NaolibMapView(
         onStyleLoaded = { m, s ->
-            ItineraryMapLayers.addTo(s)
+            ItineraryMapLayers.addTo(s, density.density)
             m.uiSettings.isRotateGesturesEnabled = false
             m.addOnMapClickListener { latLng -> tapStop(m, latLng, density.density)?.let(latestOnStopClick) != null }
             map = m
