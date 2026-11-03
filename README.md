@@ -2,7 +2,8 @@
 
 A native Android alternative to the official Naolib app (Nantes public transport network), built
 for speed, offline use and UX quality: favorites-driven live departures, unified stop / address /
-itinerary search, a full network map, a home-screen widget and disruption notices. Built on **open
+itinerary search, itineraries shown on a map (street-accurate, options side by side), a full network
+map, a home-screen widget and disruption notices. Built on **open
 data**: the whole timetable (GTFS) ships with the app and refreshes itself daily, itineraries are
 computed on the phone, and real-time departures come from the open Okina SIRI feed - everything
 works offline except real time and address search.
@@ -22,6 +23,7 @@ works offline except real time and address search.
 | Disruption notices | Okina GTFS-RT Alerts (keyless, shares the GTFS-RT budget) |
 | Bacs de Loire (B1, B2) | Département de Loire-Atlantique GTFS (Licence Ouverte), appended to the network |
 | Walking paths in itineraries | OpenStreetMap pedestrian graph of Nantes Métropole (Geofabrik extract, ODbL), bundled as `assets/seed/walk_graph.bin` |
+| Ride paths on itinerary maps | OpenStreetMap bus/tram ways and Naolib route relations (same extract, ODbL), one street path per stop-to-stop hop, stored in `network.bin` |
 | Map line drawing / labels | Official Naolib map tiles (`plan-app.naolib.fr`, seeded offline) |
 | Addresses | Géoplateforme (geopf.fr) |
 | Basemap | OpenStreetMap |
@@ -32,8 +34,8 @@ works offline except real time and address search.
 
 ```
 transit/                — pure-JVM core: GTFS converter, packed network format, RAPTOR router,
-                          OSM walking graph, SIRI/GTFS-RT parsing, departure-board composition
-                          (+ `packSeed` / `packWalkGraph` tasks)
+                          OSM walking graph, OSM ride paths, SIRI/GTFS-RT parsing, departure-board
+                          composition (+ `packSeed` / `packWalkGraph` / `packRideShapes` tasks)
 app/src/main/java/com/bustramnantes/app/
 ├── data/
 │   ├── local/          — Room (favorites, recent searches) + AppPreferencesDataStore + seeded map tiles
@@ -53,10 +55,10 @@ app/src/main/java/com/bustramnantes/app/
 │   ├── timetable/      — Theoretical timetables
 │   ├── map/            — Full-screen Naolib network map (MapLibre)
 │   ├── nearby/         — Stops around the user
-│   ├── itinerary/      — Itinerary results, step-by-step detail, sharing
+│   ├── itinerary/      — Itinerary results and step-by-step detail, both on a map; sharing
 │   ├── disruptions/    — Network-wide disruption list
 │   ├── settings/       — Theme / data / favorites / about
-│   └── common/         — Theme, shared components, navigation graph (`Screen`, `AppNavGraph`)
+│   └── common/         — Theme, shared components, shared map view, navigation graph (`Screen`, `AppNavGraph`)
 ├── widget/             — Glance home-screen widget + its configuration Activity
 ├── worker/             — WorkManager background tasks (daily network refresh, widget refresh)
 ├── BusEtTramApplication.kt — Hilt root; schedules background work, MapLibre setup
@@ -70,6 +72,7 @@ app/src/main/java/com/bustramnantes/app/
 ./gradlew :transit:test :app:testDebugUnitTest   # JVM unit tests
 ./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin
 ./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate walk_graph.bin
+./gradlew :transit:packRideShapes -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf # add OSM ride paths to network.bin
 ```
 
 No API keys or `local.properties` secrets are required beyond `sdk.dir`: every network call is to a
