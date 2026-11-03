@@ -1,0 +1,101 @@
+# Builds, signs and publishes the release APK for every `v*` tag.
+#
+# Produces exactly what F-Droid verifies against (`Binaries:` in fdroid/com.bustramnantes.app.yml):
+# the unsigned `assembleRelease` signed by fdroid/sign-release.sh, attached to the GitHub release
+# of the tag as `app-release.apk`.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   RELEASE_KEYSTORE_BASE64   base64 of the release .jks   (base64 -w0 release.jks)
+#   RELEASE_KEY_ALIAS         key alias, e.g. "release"
+#   RELEASE_KEYSTORE_PASSWORD keystore password
+#   RELEASE_KEY_PASSWORD      key password (same as the keystore's for a keytool-made PKCS12)
+#
+# Hardening:
+# - actions pinned to commit SHAs with `ratchet` (https://github.com/sethvargo/ratchet):
+#   `ratchet lint` / `ratchet upgrade` keep them pinned; the `# ratchet:` comments are the tags.
+# - no Gradle cache: a release must not restore state an earlier run could have poisoned (and
+#   gradle/actions v6 caching is a proprietary component); the wrapper jar is checksum-validated.
+# - the signing secrets reach only the signing step, which runs apksigner and no Gradle (build
+#   scripts and dependencies never see them); the Kotlin compiler runs in-process so no daemon
+#   outlives the build step.
+# - checkout does not persist the token; the token reaches only the publishing step.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write # create the release and upload the APK
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+      KOTLIN_IN_PROCESS: -Pkotlin.compiler.execution.strategy=in-process
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # ratchet:gradle/actions/wrapper-validation@v6.4.1
+
+      # JDK 17, like F-Droid's build server (Debian bookworm), to keep the bytecode identical.
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # ratchet:actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Check the tag matches versionName
+        run: |
+          version="$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME but versionName is $version (app/build.gradle.kts)"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: ./gradlew $KOTLIN_IN_PROCESS :transit:test :app:testDebugUnitTest
+
+      - name: Build the unsigned release APK
+        run: ./gradlew $KOTLIN_IN_PROCESS clean :app:assembleRelease
+
+      - name: Sign
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          export KEYSTORE="$RUNNER_TEMP/release.jks"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          (umask 077; echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE")
+          SKIP_BUILD=1 KS_PASS=env:RELEASE_KEYSTORE_PASSWORD KEY_PASS=env:RELEASE_KEY_PASSWORD \
+            bash fdroid/sign-release.sh
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          code="$(sed -n 's/^ *versionCode = \([0-9]*\)/\1/p' app/build.gradle.kts)"
+          notes="$RUNNER_TEMP/notes.md"
+          for locale in fr-FR en-US; do
+            f="fastlane/metadata/android/$locale/changelogs/$code.txt"
+            if [ -f "$f" ]; then cat "$f" >> "$notes"; echo >> "$notes"; fi
+          done
+          [ -s "$notes" ] || echo "Version ${GITHUB_REF_NAME#v}" > "$notes"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$apk" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$apk" --verify-tag \
+              --title "$GITHUB_REF_NAME" --notes-file "$notes"
+          fi

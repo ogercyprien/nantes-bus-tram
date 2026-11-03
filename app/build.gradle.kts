@@ -37,10 +37,15 @@ android {
 
     buildTypes {
         release {
-            // R8 full-mode: shrink + obfuscate + strip unused resources. Keeps the APK small and
-            // makes the (reverse-engineered, public) API key non-trivial to lift from the binary.
+            // R8 full-mode: shrink + obfuscate + strip unused resources, to keep the APK small.
             // Keep rules live in proguard-rules.pro (kotlinx.serialization DTOs, MapLibre JNI, etc.).
+            // No signingConfig on purpose: the release build is UNSIGNED, exactly what F-Droid
+            // builds; fdroid/sign-release.sh signs it with apksigner for the GitHub release.
             isMinifyEnabled = true
+            // Reproducible builds: keep the git commit/remote out of the APK
+            // (META-INF/version-control-info.textproto), so a rebuild from a source tarball or a
+            // differently-cloned tree is byte-identical.
+            vcsInfo.include = false
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -159,4 +164,13 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+}
+
+// Reproducible builds (F-Droid): the ART baseline profile (assets/dexopt/baseline.prof[m]), merged
+// from the libraries' profiles, is not byte-stable from one build to the next, which would make
+// F-Droid's rebuild differ from the published APK. Without it the app loses the libraries'
+// pre-compiled startup paths (Compose); everything else is unchanged.
+// See https://f-droid.org/docs/Reproducible_Builds/
+tasks.configureEach {
+    if (name.contains("ArtProfile")) enabled = false
 }

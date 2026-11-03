@@ -22,3 +22,6 @@ captures/
 # Signing material
 *.jks
 *.keystore
+
+# sethvargo/ratchet binary (local tool for pinning GitHub Actions, not part of the repo)
+/ratchet

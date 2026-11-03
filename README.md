@@ -81,6 +81,24 @@ public, keyless endpoint.
 Live, opt-in tests hit the real services:
 `LIVE_API=1 ./gradlew --no-daemon :app:testDebugUnitTest --tests '*Live*' --rerun`.
 
+## Releasing (GitHub + F-Droid)
+
+The release build is unsigned and reproducible: F-Droid rebuilds each tag, checks that its build is
+byte-identical to the APK attached to the GitHub release and publishes that APK, signed with our key
+(`fdroid/com.bustramnantes.app.yml` is the fdroiddata recipe).
+
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, add
+   `fastlane/metadata/android/{en-US,fr-FR}/changelogs/<versionCode>.txt`, commit.
+2. Tag `v<versionName>` and push the commit and the tag.
+3. `.github/workflows/release.yml` runs the tests, builds and signs the APK
+   (`fdroid/sign-release.sh`, key from the repository secrets) and publishes the GitHub release
+   with `app-release.apk` and the changelogs. F-Droid picks the tag up on its own.
+   Its actions are pinned to commit SHAs with [ratchet](https://github.com/sethvargo/ratchet)
+   (`ratchet lint` / `ratchet upgrade .github/workflows/release.yml`; the binary is not committed).
+
+By hand instead: `KEYSTORE=/path/release.jks KEY_ALIAS=release fdroid/sign-release.sh`, then attach
+`app/build/outputs/apk/release/app-release.apk` to the release under that exact name.
+
 ## Not built (yet)
 
 - Live vehicle positions: the upstream feeds (GTFS-RT VehiclePositions, SIRI VM) are empty.
