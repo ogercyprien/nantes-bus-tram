@@ -6,7 +6,6 @@
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   RELEASE_KEYSTORE_BASE64   base64 of the release .jks   (base64 -w0 release.jks)
-#   RELEASE_KEY_ALIAS         key alias, e.g. "release"
 #   RELEASE_KEYSTORE_PASSWORD keystore password
 #   RELEASE_KEY_PASSWORD      key password (same as the keystore's for a keytool-made PKCS12)
 #
@@ -70,7 +69,8 @@ jobs:
       - name: Sign
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          # The alias is not a secret: as one, GitHub masks every "release" in the log.
+          KEY_ALIAS: release
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |

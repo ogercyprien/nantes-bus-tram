@@ -327,7 +327,9 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 - **F-Droid, reproducible builds**: the release build is unsigned and must stay byte-identical across
   checkouts (verified: two paths, same sha256): `vcsInfo.include = false`, ArtProfile tasks
   disabled, no `signingConfig`. `fdroid/sign-release.sh` signs with apksigner
-  `--alignment-preserved true` (without it F-Droid's apksigcopier check fails). Recipe for
+  `--alignment-preserved true` (without it F-Droid's apksigcopier check fails) and checks the
+  certificate against `AllowedAPKSigningKeys` by hex digest only (apksigner's labels changed in
+  build-tools 37; CI runners pick the newest build-tools). Recipe for
   fdroiddata: `fdroid/com.bustramnantes.app.yml`; store texts/images in `fastlane/metadata/`.
   Release flow in README "Releasing".
 - Persistent env: `/etc/sandbox-persistent.sh` (never put shell completions there — breaks bash).

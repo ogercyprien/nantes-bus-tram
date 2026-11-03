@@ -18,6 +18,8 @@
 # Fingerprint for AllowedAPKSigningKeys (lowercase hex, no colons):
 #   apksigner verify --print-certs app-release.apk | grep 'SHA-256' | awk '{print $NF}'
 set -euo pipefail
+# A failing command must say so: a bare `exit 1` from set -e leaves an empty CI log.
+trap 'echo "sign-release.sh: line $LINENO: \"$BASH_COMMAND\" failed (exit $?)" >&2' ERR
 
 : "${KEYSTORE:?set KEYSTORE to the release keystore path}"
 : "${KEY_ALIAS:?set KEY_ALIAS to the key alias}"
@@ -52,7 +54,25 @@ signer_args=(--ks "$KEYSTORE" --ks-key-alias "$KEY_ALIAS")
 # (verified: CHUNKED_SHA256 digest mismatch without it, passes with it).
 "$APKSIGNER" sign "${signer_args[@]}" --alignment-preserved true \
   --v1-signing-enabled false --v4-signing-enabled false --out "$OUT" "$UNSIGNED"
-"$APKSIGNER" verify --print-certs "$OUT" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+echo "Signed with $APKSIGNER"
+
+# Check the signing certificate against the one F-Droid will accept (AllowedAPKSigningKeys in the
+# fdroiddata recipe): a wrong key in the CI secrets fails here, not in F-Droid's verification.
+# Matched on the hex digest alone: the labels change between apksigner versions
+# ("Signer #1 certificate SHA-256 digest" in 35, "V3.0 Signer: certificate SHA-256 digest" in 37).
+certs="$("$APKSIGNER" verify --print-certs "$OUT")"
+actual="$(grep -i 'SHA-256 digest' <<<"$certs" | grep -oE '[0-9a-f]{64}' | sort -u || true)"
+expected="$(sed -n 's/^AllowedAPKSigningKeys: *\([0-9a-f]\{64\}\).*/\1/p' fdroid/com.bustramnantes.app.yml)"
+echo "Certificate SHA-256: ${actual:-<none found>}"
+if [ -z "$actual" ] || [ "$(wc -l <<<"$actual")" -ne 1 ]; then
+  echo "Expected exactly one signing certificate, apksigner reported:" >&2
+  printf '%s\n' "$certs" >&2
+  exit 1
+fi
+if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
+  echo "Signed with the wrong key: AllowedAPKSigningKeys in fdroid/com.bustramnantes.app.yml is $expected." >&2
+  exit 1
+fi
 
 VERSION="$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts)"
 echo
