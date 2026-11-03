@@ -194,6 +194,18 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   tested) turns a `Journey` into legs (rides along their OSM path in the line colour with a white
   casing and a line badge; walks dotted grey), stops (transfers larger, tappable -> Stop Detail) and
   A/B = the journey's first/last point; the camera fits it above the sheet.
+- **Results map**: the results list sits in a non-modal sheet (opens at 55 % of the screen, collapses
+  to a strip showing the highlighted journey - tap it for the detail) over `ItineraryOptionsMap`:
+  journeys are grouped by route (`optionRoutes`: same lines between the same stops = one line on the
+  map), each route in an `OPTION_COLORS` colour shown as a bar on its cards. Routes sharing a path are
+  drawn **side by side** (`OptionLanes`, after LOOM - Bast/Brosi/Storandt): bundles within one lane at
+  the map's scale with the same heading, 6 dp lanes, one global lane order searched exhaustively
+  (≤ 7 routes) minimising join/leave crossings then keeping routes that share most next to each
+  other, offsets smoothed, tapered to 0 at A/B, loops cut on sharp turns. Computed off the main
+  thread in Web Mercator metres per half zoom level (order kept across zooms; ≤ 4,000 samples per
+  route, < 30 ms on a desktop JVM). Tapping a line highlights its route (`HighlightJourney`, wider, on
+  top, others faded, list scrolls to its card); opening a journey highlights it too; the highlight
+  survives the real-time recheck like the open journey (`rideKey`).
 - Date picker / "plus tôt·plus tard" capped at `min(today+90 d, installed feed's last day)`.
 - Navibus = GTFS ferry mode (`TransportMode.FERRY`, N1/N2/N3); NA/NC/NN/NO/NS are night buses.
 
@@ -332,7 +344,8 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 ## Feature state (implemented)
 Map with Naolib lines (pre-rendered raster overlay, seeded offline) + line-number labels + stops;
 unified search (stops/addresses/itinerary); stop detail with all lines/directions (terminus-aware),
-"Provisoire" boards and short-run labels; theoretical timetables (local); favorites (stop / stop+line /
+"Provisoire" boards and short-run labels; theoretical timetables (local); itinerary results and journey detail on a map (street-accurate ride
+paths from OSM, side-by-side lanes for shared paths); favorites (stop / stop+line /
 stop+line+direction) with per-departure line badges; home widget (one awaited SIRI request per refresh
 for all widgets); **on-device itinerary planning** (Maintenant / Partir à / Arriver à, "Arriver plus tôt
 / plus tard" ±15 min via `domain/util/shiftItineraryTime`, handed back to the Search form through the
@@ -346,5 +359,5 @@ Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `Realtim
 `JourneyPhantomCheckTest`, `JourneyWalkTrimmingTest`, `DepartureGroupingTest`, `PhantomDeparturesTest`,
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,
 `JourneyShareTextTest`, `TimetableHourBlocksTest`, `StopDetailFavoritesTest`, `GtfsRtDisruptionRepositoryTest`,
-`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, … (`:transit` also `ServiceAlertsTest`,
+`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, `OptionLanesTest`, … (`:transit` also `ServiceAlertsTest`,
 `WalkGraphTest`, `BacsDeLoireTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).

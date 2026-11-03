@@ -1,5 +1,12 @@
 package com.bustramnantes.app.presentation.itinerary
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +44,8 @@ import com.bustramnantes.app.presentation.common.components.LineBadgeSize
  * One row in the itinerary results list: total duration + departure/arrival
  * times, a mode-sequence row (`🚶 → C2 → 🚶`), the transfer count and, when the journey involves
  * any walking, the total walking time (see [formatTotalWalkingTime]). Tapping opens the
- * step-by-step detail view via [onClick].
+ * step-by-step detail view via [onClick]. [accentColor] = the journey's route colour on the results
+ * map (a bar on the left); [highlighted] = that route is the one standing out on the map (outlined).
  */
 @Composable
 fun JourneySummaryCard(
@@ -45,60 +53,74 @@ fun JourneySummaryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     legDisruptions: Map<JourneySection.Transit, List<Disruption>> = emptyMap(),
+    accentColor: Color? = null,
+    highlighted: Boolean = false,
 ) {
     val disrupted = journey.sections.filterIsInstance<JourneySection.Transit>().filter { legDisruptions[it].orEmpty().isNotEmpty() }
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        border = if (highlighted && accentColor != null) BorderStroke(2.dp, accentColor) else null,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${formatClockTime(journey.departureTime)} → ${formatClockTime(journey.arrivalTime)}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = formatJourneyDuration(journey.totalDurationSeconds),
-                    style = MaterialTheme.typography.titleMedium,
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            // The route's colour on the results map.
+            if (accentColor != null) {
+                Box(
+                    modifier = Modifier
+                        .width(6.dp)
+                        .fillMaxHeight()
+                        .background(accentColor),
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            ModeSequenceRow(sections = journey.sections, disruptedLegs = disrupted.toSet())
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = formatTransferCount(journey.transferCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            formatTotalWalkingTime(journey.sections)?.let { walkingText ->
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${formatClockTime(journey.departureTime)} → ${formatClockTime(journey.arrivalTime)}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = formatJourneyDuration(journey.totalDurationSeconds),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ModeSequenceRow(sections = journey.sections, disruptedLegs = disrupted.toSet())
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = walkingText,
+                    text = formatTransferCount(journey.transferCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            // Disruption notices on the lines/stops this journey uses while it runs (details in the
-            // journey view).
-            disrupted.firstOrNull()?.let { leg ->
-                val count = disrupted.flatMap { legDisruptions[it].orEmpty() }.distinct().size
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    Icon(Icons.Filled.Warning, contentDescription = null, tint = DisruptionAmber, modifier = Modifier.size(16.dp))
+                formatTotalWalkingTime(journey.sections)?.let { walkingText ->
                     Text(
-                        text = if (count == 1) {
-                            "Perturbation : ${legDisruptions.getValue(leg).first().title}"
-                        } else {
-                            "$count perturbations sur ce trajet"
-                        },
+                        text = walkingText,
                         style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 6.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                // Disruption notices on the lines/stops this journey uses while it runs (details in the
+                // journey view).
+                disrupted.firstOrNull()?.let { leg ->
+                    val count = disrupted.flatMap { legDisruptions[it].orEmpty() }.distinct().size
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                        Icon(Icons.Filled.Warning, contentDescription = null, tint = DisruptionAmber, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = if (count == 1) {
+                                "Perturbation : ${legDisruptions.getValue(leg).first().title}"
+                            } else {
+                                "$count perturbations sur ce trajet"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
                 }
             }
         }

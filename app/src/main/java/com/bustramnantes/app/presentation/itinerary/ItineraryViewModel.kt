@@ -169,6 +169,7 @@ class ItineraryViewModel @Inject constructor(
             ItineraryResultsEvent.Retry -> search()
             is ItineraryResultsEvent.SelectJourney -> selectJourney(event.index)
             ItineraryResultsEvent.CloseJourneyDetail -> closeJourneyDetail()
+            is ItineraryResultsEvent.HighlightJourney -> highlightJourney(event.index)
             ItineraryResultsEvent.ShiftEarlier -> shiftTime(-ITINERARY_TIME_SHIFT_MINUTES)
             ItineraryResultsEvent.ShiftLater -> shiftTime(ITINERARY_TIME_SHIFT_MINUTES)
             is ItineraryResultsEvent.DisruptionClicked -> openDisruption.value = event.disruption
@@ -239,8 +240,8 @@ class ItineraryViewModel @Inject constructor(
     }
 
     /**
-     * Shows [plan]. An open journey detail stays open across the timetable -> real-time update when that
-     * journey is still in the list (matched by the trips it rides, so predicted times don't break the
+     * Shows [plan]. An open journey detail (and the journey highlighted on the map) stays across the
+     * timetable -> real-time update when that journey is still in the list (matched by the trips it rides, so predicted times don't break the
      * match); if it was dropped (it rode a phantom bus) the list is shown, with the notice saying why.
      */
     private fun CoroutineScope.publish(plan: ItineraryPlan) {
@@ -252,10 +253,13 @@ class ItineraryViewModel @Inject constructor(
         val previous = _uiState.value as? ItineraryResultsUiState.Success
         val selectedKey = previous?.selectedJourneyIndex?.let { previous.journeys.getOrNull(it) }?.rideKey()
         val selected = selectedKey?.let { key -> journeys.indexOfFirst { it.rideKey() == key }.takeIf { it >= 0 } }
+        val highlightedKey = previous?.highlightedJourneyIndex?.let { previous.journeys.getOrNull(it) }?.rideKey()
+        val highlighted = highlightedKey?.let { key -> journeys.indexOfFirst { it.rideKey() == key }.takeIf { it >= 0 } }
         // Show the results as fast as possible; only THEN resolve the per-leg timetable nav routes.
         _uiState.value = ItineraryResultsUiState.Success(
             journeys = journeys,
             selectedJourneyIndex = selected,
+            highlightedJourneyIndex = highlighted,
             scheduleNotice = scheduleNoticeFor(journeys),
             phantomNotice = phantomNoticeFor(plan),
             realtimeChecking = plan.realtimeCheckPending,
@@ -341,7 +345,15 @@ class ItineraryViewModel @Inject constructor(
     private fun selectJourney(index: Int) {
         val current = _uiState.value
         if (current is ItineraryResultsUiState.Success && index in current.journeys.indices) {
-            _uiState.value = current.copy(selectedJourneyIndex = index)
+            // Back on the list, the map highlights the journey just looked at.
+            _uiState.value = current.copy(selectedJourneyIndex = index, highlightedJourneyIndex = index)
+        }
+    }
+
+    private fun highlightJourney(index: Int?) {
+        val current = _uiState.value
+        if (current is ItineraryResultsUiState.Success && (index == null || index in current.journeys.indices)) {
+            _uiState.value = current.copy(highlightedJourneyIndex = index)
         }
     }
 

@@ -50,6 +50,12 @@ sealed interface ItineraryResultsUiState {
          * results replace them.
          */
         val realtimeChecking: Boolean = false,
+        /**
+         * The journey whose route stands out on the results map (drawn wider and on top, shown in the
+         * collapsed sheet): set by tapping its line on the map, or by opening its detail; `null` = all
+         * routes alike. Distinct from [selectedJourneyIndex], which opens the detail view.
+         */
+        val highlightedJourneyIndex: Int? = null,
     ) : ItineraryResultsUiState
 }
 
@@ -71,6 +77,9 @@ sealed interface ItineraryResultsEvent {
 
     /** Opens the step-by-step detail view for the journey at [index]. */
     data class SelectJourney(val index: Int) : ItineraryResultsEvent
+
+    /** A route tapped on the results map ([index] = one of its journeys), or empty map tapped (null). */
+    data class HighlightJourney(val index: Int?) : ItineraryResultsEvent
 
     /** Returns from the detail view to the results list. */
     data object CloseJourneyDetail : ItineraryResultsEvent

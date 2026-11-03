@@ -1,6 +1,19 @@
 package com.bustramnantes.app.presentation.itinerary
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberStandardBottomSheetState
+import androidx.compose.ui.graphics.Color
+import com.bustramnantes.app.presentation.itinerary.map.ItineraryOptionsMap
+import com.bustramnantes.app.presentation.itinerary.map.optionRoutes
+import com.bustramnantes.app.presentation.itinerary.map.routeOfJourney
 import com.bustramnantes.app.presentation.itinerary.map.journeyMapModel
 import com.bustramnantes.app.presentation.itinerary.map.JourneyMap
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -56,8 +69,9 @@ import com.bustramnantes.app.presentation.common.components.OfflineAwareContent
 
 /**
  * Itinerary results screen: pushed from Search's "Chercher" button in Itinéraire
- * mode. Shows up to 12 journey options; tapping one swaps in its step-by-step detail view in
- * place (there is no separate nav-graph route for it - see [ItineraryResultsUiState]).
+ * mode. Shows up to 12 journey options on a map and in a list ([ResultsWithMap]); tapping one swaps
+ * in its step-by-step detail view, also over a map, in place (there is no separate nav-graph route
+ * for it - see [ItineraryResultsUiState]).
  *
  * [onBackClick] is only invoked when the results list itself is showing - while the detail view is
  * open, back (gesture/button/hardware) instead returns to the list. [onStopClick] is invoked with
@@ -175,12 +189,11 @@ fun ItineraryResultsScreen(
                             )
                         }
                     } else {
-                        JourneyResultsList(
-                            journeys = state.journeys,
-                            scheduleNotice = state.scheduleNotice,
-                            phantomNotice = state.phantomNotice,
+                        ResultsWithMap(
+                            state = state,
                             legDisruptions = disruptionsState.byLeg,
                             onJourneyClick = { index -> viewModel.onEvent(ItineraryResultsEvent.SelectJourney(index)) },
+                            onHighlight = { index -> viewModel.onEvent(ItineraryResultsEvent.HighlightJourney(index)) },
                         )
                     }
                 }
@@ -262,23 +275,167 @@ private fun RealtimeCheckBanner(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The results on a map: every route of the list in its own colour, side by side where they share a
+ * path ([ItineraryOptionsMap]), under a non-modal sheet holding the list. The sheet opens over
+ * [RESULTS_SHEET_FRACTION] of the screen and collapses to a strip ([ResultsSheetHeader]) that shows the
+ * journey highlighted on the map - tap a route's line to highlight it, the strip (or its card) to
+ * open it. Without any drawable route, the list alone.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResultsWithMap(
+    state: ItineraryResultsUiState.Success,
+    legDisruptions: Map<JourneySection.Transit, List<Disruption>>,
+    onJourneyClick: (Int) -> Unit,
+    onHighlight: (Int?) -> Unit,
+) {
+    val routes = remember(state.journeys) { optionRoutes(state.journeys) }
+    val routeOf = remember(routes) { routeOfJourney(routes) }
+    val colors = remember(routes) { routeOf.mapValues { (_, r) -> Color(android.graphics.Color.parseColor(routes[r].color)) } }
+    val notices = listOfNotNull(state.scheduleNotice, state.phantomNotice)
+    val highlighted = state.highlightedJourneyIndex?.takeIf { it in state.journeys.indices }
+    val listState = rememberLazyListState()
+    LaunchedEffect(highlighted) {
+        if (highlighted != null) listState.animateScrollToItem(notices.size + highlighted)
+    }
+    if (routes.isEmpty()) {
+        JourneyResultsList(state.journeys, notices, legDisruptions, colors, highlighted, listState, onJourneyClick, Modifier.fillMaxSize())
+        return
+    }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val sheetHeight = maxHeight * RESULTS_SHEET_FRACTION
+        BottomSheetScaffold(
+            scaffoldState = rememberBottomSheetScaffoldState(
+                bottomSheetState = rememberStandardBottomSheetState(initialValue = SheetValue.Expanded),
+            ),
+            sheetPeekHeight = RESULTS_SHEET_STRIP_HEIGHT,
+            sheetDragHandle = { SheetHandle() },
+            sheetContent = {
+                // A fixed height: "expanded" = this much of the screen, the map stays visible above.
+                Column(modifier = Modifier.fillMaxWidth().height(sheetHeight - SHEET_HANDLE_HEIGHT)) {
+                    ResultsSheetHeader(
+                        journey = highlighted?.let(state.journeys::get),
+                        accentColor = highlighted?.let(colors::get),
+                        journeyCount = state.journeys.size,
+                        onClick = { highlighted?.let(onJourneyClick) },
+                    )
+                    JourneyResultsList(
+                        state.journeys, notices, legDisruptions, colors, highlighted, listState, onJourneyClick,
+                        Modifier.fillMaxWidth().weight(1f),
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            ItineraryOptionsMap(
+                routes = routes,
+                highlighted = highlighted?.let(routeOf::get),
+                bottomInset = sheetHeight,
+                onRouteTap = { r ->
+                    // Keep the highlighted journey when its route is tapped again; else the route's first.
+                    val keep = highlighted != null && r != null && routeOf[highlighted] == r
+                    onHighlight(if (keep) highlighted else r?.let { routes[it].journeyIndices.first() })
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** Share of the screen the results sheet covers when open. */
+private const val RESULTS_SHEET_FRACTION = 0.55f
+private val SHEET_HANDLE_HEIGHT = 20.dp
+private val SHEET_HEADER_HEIGHT = 76.dp
+/** Collapsed sheet: the handle + [ResultsSheetHeader]. */
+private val RESULTS_SHEET_STRIP_HEIGHT = SHEET_HANDLE_HEIGHT + SHEET_HEADER_HEIGHT
+
+@Composable
+private fun SheetHandle() {
+    Box(modifier = Modifier.fillMaxWidth().height(SHEET_HANDLE_HEIGHT), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(width = 32.dp, height = 4.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(2.dp)),
+        )
+    }
+}
+
+/**
+ * The strip the collapsed results sheet shows: the journey highlighted on the map (times, duration,
+ * lines; tap = its detail), else how many journeys there are and how to pick one on the map.
+ */
+@Composable
+private fun ResultsSheetHeader(
+    journey: Journey?,
+    accentColor: Color?,
+    journeyCount: Int,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(SHEET_HEADER_HEIGHT)
+            .clickable(enabled = journey != null, onClick = onClick)
+            .padding(horizontal = 16.dp),
+    ) {
+        if (journey == null) {
+            Column {
+                Text(
+                    text = if (journeyCount == 1) "1 itinéraire" else "$journeyCount itinéraires",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "Touchez un tracé sur la carte pour le repérer dans la liste",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return@Row
+        }
+        Box(
+            modifier = Modifier
+                .size(width = 6.dp, height = 48.dp)
+                .background(accentColor ?: MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+        )
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                text = "${formatClockTime(journey.departureTime)} → ${formatClockTime(journey.arrivalTime)} · " +
+                    formatJourneyDuration(journey.totalDurationSeconds),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+            )
+            ModeSequenceRow(sections = journey.sections, modifier = Modifier.padding(top = 4.dp))
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Voir le détail",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun JourneyResultsList(
     journeys: List<Journey>,
-    scheduleNotice: String?,
-    phantomNotice: String?,
+    notices: List<String>,
     legDisruptions: Map<JourneySection.Transit, List<Disruption>>,
+    colors: Map<Int, Color>,
+    highlighted: Int?,
+    listState: LazyListState,
     onJourneyClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        state = listState,
+        modifier = modifier,
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Scrolls with the list rather than pinning: it explains the (single, walking) result below
         // it, so it belongs right above that card.
-        listOfNotNull(scheduleNotice, phantomNotice).forEach { notice ->
+        notices.forEach { notice ->
             item {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
@@ -299,6 +456,8 @@ private fun JourneyResultsList(
                 journey = journey,
                 onClick = { onJourneyClick(index) },
                 legDisruptions = legDisruptions,
+                accentColor = colors[index],
+                highlighted = index == highlighted,
             )
         }
     }

@@ -59,6 +59,8 @@ object ItineraryMapLayers {
     const val PROP_STOP_ID = "stopId"
     const val PROP_WIDTH = "width"
     const val PROP_OPACITY = "opacity"
+    /** Index of the [OptionRoute] a results-map line belongs to (for taps). */
+    const val PROP_ROUTE = "route"
 
     private const val KIND_RIDE = "ride"
     private const val KIND_WALK = "walk"
