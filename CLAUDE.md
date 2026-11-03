@@ -188,6 +188,12 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   street walks): a journey every time the official one had one; median arrival Δ −1 / −1 min; 76/80
   within +5 min (remaining: official walks of 18–21 min to a farther stop; the one Indret trip that
   needed the bac now matches the official planner since the bacs were added).
+- **Journey detail map** (`presentation/itinerary/map/`): the detail view is the journey on a map
+  (`JourneyMap` on `NaolibMapView`) under a non-modal `BottomSheetScaffold` holding
+  `JourneyDetailContent` (opens at half height, map pannable underneath). `journeyMapModel` (pure,
+  tested) turns a `Journey` into legs (rides along their OSM path in the line colour with a white
+  casing and a line badge; walks dotted grey), stops (transfers larger, tappable -> Stop Detail) and
+  A/B = the journey's first/last point; the camera fits it above the sheet.
 - Date picker / "plus tôt·plus tard" capped at `min(today+90 d, installed feed's last day)`.
 - Navibus = GTFS ferry mode (`TransportMode.FERRY`, N1/N2/N3); NA/NC/NN/NO/NS are night buses.
 
@@ -340,5 +346,5 @@ Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `Realtim
 `JourneyPhantomCheckTest`, `JourneyWalkTrimmingTest`, `DepartureGroupingTest`, `PhantomDeparturesTest`,
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,
 `JourneyShareTextTest`, `TimetableHourBlocksTest`, `StopDetailFavoritesTest`, `GtfsRtDisruptionRepositoryTest`,
-`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, … (`:transit` also `ServiceAlertsTest`,
+`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, … (`:transit` also `ServiceAlertsTest`,
 `WalkGraphTest`, `BacsDeLoireTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).

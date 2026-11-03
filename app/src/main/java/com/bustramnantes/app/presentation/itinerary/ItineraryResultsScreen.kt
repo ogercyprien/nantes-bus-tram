@@ -1,6 +1,12 @@
 package com.bustramnantes.app.presentation.itinerary
 
 import androidx.activity.compose.BackHandler
+import com.bustramnantes.app.presentation.itinerary.map.journeyMapModel
+import com.bustramnantes.app.presentation.itinerary.map.JourneyMap
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -154,17 +160,20 @@ fun ItineraryResultsScreen(
                 is ItineraryResultsUiState.Success -> {
                     val selectedJourney = state.selectedJourneyIndex?.let { state.journeys.getOrNull(it) }
                     if (selectedJourney != null) {
-                        JourneyDetailContent(
-                            journey = selectedJourney,
-                            onStopClick = onStopClick,
-                            timetableRoutes = state.timetableRoutes,
-                            onOpenTimetable = onOpenTimetable,
-                            fromLabel = viewModel.fromLabel,
-                            toLabel = viewModel.toLabel,
-                            legDisruptions = disruptionsState.byLeg,
-                            linesOf = { d -> d.lineIds.mapNotNull(disruptionsState.linesById::get) },
-                            onOpenDisruption = { viewModel.onEvent(ItineraryResultsEvent.DisruptionClicked(it)) },
-                        )
+                        JourneyDetailWithMap(journey = selectedJourney, onStopClick = onStopClick) { sheetModifier ->
+                            JourneyDetailContent(
+                                journey = selectedJourney,
+                                onStopClick = onStopClick,
+                                timetableRoutes = state.timetableRoutes,
+                                onOpenTimetable = onOpenTimetable,
+                                fromLabel = viewModel.fromLabel,
+                                toLabel = viewModel.toLabel,
+                                legDisruptions = disruptionsState.byLeg,
+                                linesOf = { d -> d.lineIds.mapNotNull(disruptionsState.linesById::get) },
+                                onOpenDisruption = { viewModel.onEvent(ItineraryResultsEvent.DisruptionClicked(it)) },
+                                modifier = sheetModifier,
+                            )
+                        }
                     } else {
                         JourneyResultsList(
                             journeys = state.journeys,
@@ -187,6 +196,48 @@ fun ItineraryResultsScreen(
         )
     }
 }
+
+/**
+ * The journey detail view: the journey on a map ([JourneyMap], full size) under a non-modal bottom
+ * sheet holding the step-by-step [detail] - opened half-way, drag it up to read every step or down
+ * to see the map (the map stays pannable under it, as on the Plan tab). Without any drawable geometry
+ * the detail is shown alone.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JourneyDetailWithMap(
+    journey: Journey,
+    onStopClick: (stopId: String) -> Unit,
+    detail: @Composable (Modifier) -> Unit,
+) {
+    val model = remember(journey) { journeyMapModel(journey) }
+    if (model == null) {
+        detail(Modifier.fillMaxSize())
+        return
+    }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val peek = maxHeight * DETAIL_SHEET_PEEK_FRACTION
+        BottomSheetScaffold(
+            scaffoldState = rememberBottomSheetScaffoldState(),
+            sheetPeekHeight = peek,
+            sheetContent = {
+                // Fill the sheet so the detail's list drives it: collapsing once scrolled to the top.
+                detail(Modifier.fillMaxWidth().fillMaxHeight())
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            JourneyMap(
+                model = model,
+                bottomInset = peek,
+                onStopClick = onStopClick,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** Share of the screen the detail sheet covers when it opens (the map shows above it). */
+private const val DETAIL_SHEET_PEEK_FRACTION = 0.5f
 
 /** "Vérification des données temps réel…" with a small spinner, above the results while the check runs. */
 @Composable

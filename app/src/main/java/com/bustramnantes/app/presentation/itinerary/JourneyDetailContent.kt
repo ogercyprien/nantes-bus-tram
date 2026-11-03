@@ -75,7 +75,8 @@ import com.bustramnantes.app.presentation.common.utils.PHANTOM_DEPARTURE_LABEL
 /**
  * Step-by-step detail view for one [Journey]: transit legs show line/direction
  * and every concerned stop with its time; walking legs render the compass-direction summary from
- * [formatWalkingSummary]. No map thumbnail.
+ * [formatWalkingSummary]. The map is the host's ([com.bustramnantes.app.presentation.itinerary.map.JourneyMap],
+ * under the sheet this content sits in).
  *
  * The header carries the share menu ([JourneyShareButton]: calendar / text / image).
  * [fromLabel]/[toLabel] are the search's endpoint labels, used to title shared trips.
