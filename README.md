@@ -14,6 +14,17 @@ works offline except real time and address search.
   Hilt, Room, MapLibre
 - **Language**: English in code, French in all UI strings
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="200" alt="Favorites with live departures and disruption notices"><br>Favorites</td>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="200" alt="Stop search with favorites and line badges"><br>Search</td>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="200" alt="Itinerary options drawn side by side on a map"><br>Itineraries</td>
+    <td align="center"><img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" width="200" alt="Journey detail with the ride on the map"><br>Journey detail</td>
+  </tr>
+</table>
+
 ## Data sources
 
 | What | Source |
