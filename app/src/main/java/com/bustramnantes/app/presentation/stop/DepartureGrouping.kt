@@ -4,7 +4,6 @@ import com.bustramnantes.app.domain.model.Departure
 import com.bustramnantes.app.domain.model.Direction
 import com.bustramnantes.app.domain.model.ServedLine
 import com.bustramnantes.app.domain.model.TransportMode
-import com.bustramnantes.app.domain.util.normalizeForMatch
 
 /** Default cap on rows rendered per line+direction section ("Next 3-5 departures"). */
 const val MAX_DEPARTURES_PER_GROUP = 5
@@ -116,18 +115,4 @@ fun buildDepartureGroups(
     }
 
     return groups.sortedWith(groupComparator)
-}
-
-/**
- * This run's own destination when it is a **short run** - it ends before the terminus its block is
- * named after (e.g. a tram 2 ending at Hôtel Dieu, listed under "Gare de Pont Rousseau") - else null.
- * A destination equal to the direction name, or to one branch of a dual `"A / B"` direction name
- * (each run of line 1 "Beaujoire / Babinière" goes to one of the two), is not a short run. Short runs
- * stay in their direction block, with this label on the row.
- */
-fun Departure.shortRunDestination(directionName: String): String? {
-    val destination = destinationName?.takeIf { it.isNotBlank() } ?: return null
-    val target = normalizeForMatch(destination)
-    val names = (listOf(directionName) + directionName.split("/")).map { normalizeForMatch(it.trim()) }
-    return if (target in names || names.all { it.isBlank() }) null else destination
 }

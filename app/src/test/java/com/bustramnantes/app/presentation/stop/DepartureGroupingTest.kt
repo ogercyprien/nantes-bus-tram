@@ -4,6 +4,8 @@ import com.bustramnantes.app.domain.model.Departure
 import com.bustramnantes.app.domain.model.Direction
 import com.bustramnantes.app.domain.model.ServedLine
 import com.bustramnantes.app.domain.model.TransportMode
+import com.bustramnantes.app.presentation.common.utils.destinationLabel
+import com.bustramnantes.app.presentation.common.utils.shortRunDestination
 import kotlinx.datetime.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -125,5 +127,18 @@ class DepartureGroupingTest {
         assertEquals(null, dep("Gare de Pont Rousseau").shortRunDestination("Gare de Pont Rousseau"))
         assertEquals(null, dep("Babinière").shortRunDestination("Beaujoire / Babinière"))
         assertEquals(null, dep(null).shortRunDestination("Beaujoire / Babinière"))
+    }
+
+    /** Same rule for Stop Detail blocks, favorite cards and the widget (Michelet, tram 2 → Espace Diderot). */
+    @Test
+    fun `destination label - fixed direction shows short runs only, mixed lists always say where`() {
+        fun dep(dest: String?) = departure("2", "2", "1", "Gare de Pont Rousseau", 1_000).copy(destinationName = dest)
+        val fixed = "Gare de Pont Rousseau"
+        assertEquals("Espace Diderot", dep("Espace Diderot").destinationLabel(fixed))
+        assertEquals(null, dep("Gare de Pont Rousseau").destinationLabel(fixed))
+        assertEquals(null, dep(null).destinationLabel(fixed))
+        assertEquals("Espace Diderot", dep("Espace Diderot").destinationLabel(null))
+        assertEquals("Gare de Pont Rousseau", dep(null).destinationLabel(null))
+        assertEquals(null, dep(null).copy(direction = Direction("1", "")).destinationLabel(null))
     }
 }

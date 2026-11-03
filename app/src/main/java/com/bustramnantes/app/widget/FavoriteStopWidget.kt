@@ -38,11 +38,13 @@ import androidx.glance.text.TextStyle
 import com.bustramnantes.app.R
 import com.bustramnantes.app.domain.model.Departure
 import com.bustramnantes.app.domain.model.Favorite
+import com.bustramnantes.app.domain.model.FavoriteType
 import com.bustramnantes.app.domain.model.TransportMode
 import com.bustramnantes.app.presentation.common.components.ensureAccessibleTextColor
 import com.bustramnantes.app.presentation.common.components.parseHexColor
 import com.bustramnantes.app.presentation.common.utils.END_OF_SERVICE_LABEL
 import com.bustramnantes.app.presentation.common.utils.PHANTOM_DEPARTURE_LABEL
+import com.bustramnantes.app.presentation.common.utils.destinationLabel
 import com.bustramnantes.app.presentation.common.utils.formatDepartureTime
 import dagger.hilt.android.EntryPointAccessors
 
@@ -151,36 +153,50 @@ private fun FavoriteStopWidgetContent(
                             style = TextStyle(color = GlanceTheme.colors.onBackground, fontSize = 14.sp),
                         )
                         else -> departures.take(3).forEach { departure ->
-                            if (departure.isSuspectedPhantom) {
-                                // Glance can't style part of one Text: struck-through, greyed time +
-                                // a separate un-struck label (same treatment as DepartureTimeText).
-                                Row {
+                            // Same "→ …" rule as the app's departure rows (short runs only when the
+                            // favorite fixes the direction).
+                            val destination = departure.destinationLabel(
+                                departure.direction.name.takeIf { favorite.type == FavoriteType.STOP_LINE_DIRECTION },
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (departure.isSuspectedPhantom) {
+                                    // Glance can't style part of one Text: struck-through, greyed time +
+                                    // a separate un-struck label (same treatment as DepartureTimeText).
+                                    Row {
+                                        Text(
+                                            text = formatDepartureTime(departure),
+                                            maxLines = 1,
+                                            style = TextStyle(
+                                                color = GlanceTheme.colors.outline,
+                                                fontSize = 14.sp,
+                                                fontStyle = FontStyle.Italic,
+                                                textDecoration = TextDecoration.LineThrough,
+                                            ),
+                                        )
+                                        Text(
+                                            text = " · $PHANTOM_DEPARTURE_LABEL",
+                                            maxLines = 1,
+                                            style = TextStyle(
+                                                color = GlanceTheme.colors.outline,
+                                                fontSize = 14.sp,
+                                                fontStyle = FontStyle.Italic,
+                                            ),
+                                        )
+                                    }
+                                } else {
                                     Text(
                                         text = formatDepartureTime(departure),
                                         maxLines = 1,
-                                        style = TextStyle(
-                                            color = GlanceTheme.colors.outline,
-                                            fontSize = 14.sp,
-                                            fontStyle = FontStyle.Italic,
-                                            textDecoration = TextDecoration.LineThrough,
-                                        ),
-                                    )
-                                    Text(
-                                        text = " · $PHANTOM_DEPARTURE_LABEL",
-                                        maxLines = 1,
-                                        style = TextStyle(
-                                            color = GlanceTheme.colors.outline,
-                                            fontSize = 14.sp,
-                                            fontStyle = FontStyle.Italic,
-                                        ),
+                                        style = TextStyle(color = GlanceTheme.colors.onBackground, fontSize = 14.sp),
                                     )
                                 }
-                            } else {
-                                Text(
-                                    text = formatDepartureTime(departure),
-                                    maxLines = 1,
-                                    style = TextStyle(color = GlanceTheme.colors.onBackground, fontSize = 14.sp),
-                                )
+                                destination?.let {
+                                    Text(
+                                        text = "  → $it",
+                                        maxLines = 1,
+                                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+                                    )
+                                }
                             }
                         }
                     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
@@ -37,7 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bustramnantes.app.domain.model.FavoriteType
 import com.bustramnantes.app.domain.model.TransportMode
-import com.bustramnantes.app.presentation.common.components.DepartureTimeText
+import com.bustramnantes.app.presentation.common.components.DepartureRow
 import com.bustramnantes.app.presentation.common.components.DisruptionAmber
 import com.bustramnantes.app.presentation.common.components.LineBadgeWithAlert
 import com.bustramnantes.app.presentation.common.components.EndOfServiceText
@@ -129,37 +128,19 @@ fun FavoriteCard(
                     // favorite (no line chosen), each row is prefixed with its line badge - otherwise
                     // a "next in 1 min" is useless without knowing which line it is.
                     else -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val showLinePerDeparture = favorite.type == FavoriteType.STOP
-                        // Direction only matters when it isn't already fixed by the favorite itself:
-                        // a whole-stop or whole-line favorite mixes directions, so each row states
-                        // which way it goes (otherwise "in 1 min" is useless).
-                        val showDirection = favorite.type != FavoriteType.STOP_LINE_DIRECTION
+                        // A line+direction favorite names its direction in the header, so rows only
+                        // label short runs, against the same canonical direction name as the Stop
+                        // Detail block; a whole-stop or whole-line favorite mixes directions, so every
+                        // row says where it goes. A whole-stop favorite also prefixes each row with
+                        // its line badge.
+                        val directionIsFixed = favorite.type == FavoriteType.STOP_LINE_DIRECTION
                         card.departures.forEach { departure ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (showLinePerDeparture) {
-                                    LineBadgeWithAlert(
-                                        shortName = departure.lineNumber,
-                                        backgroundColorHex = departure.lineColor,
-                                        textColorHex = departure.lineTextColor,
-                                        mode = departure.transportMode,
-                                        hasDisruption = departure.lineId in card.disruptedLineIds,
-                                        size = LineBadgeSize.Small,
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                                DepartureTimeText(departure = departure)
-                                if (showDirection && departure.direction.name.isNotBlank()) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "→ ${departure.direction.name}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
+                            DepartureRow(
+                                departure = departure,
+                                fixedDirectionName = departure.direction.name.takeIf { directionIsFixed },
+                                showLineBadge = favorite.type == FavoriteType.STOP,
+                                hasDisruption = departure.lineId in card.disruptedLineIds,
+                            )
                         }
                     }
                 }

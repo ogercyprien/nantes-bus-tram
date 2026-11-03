@@ -58,7 +58,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bustramnantes.app.domain.model.Disruption
 import com.bustramnantes.app.domain.model.Line
-import com.bustramnantes.app.presentation.common.components.DepartureTimeText
+import com.bustramnantes.app.presentation.common.components.DepartureRow
 import com.bustramnantes.app.presentation.common.components.DisruptionBox
 import com.bustramnantes.app.presentation.common.components.DisruptionDialog
 import com.bustramnantes.app.presentation.common.components.LineBadgeWithAlert
@@ -571,19 +571,13 @@ private fun DepartureGroupRow(
             when {
                 // Show any known times first, so a manual retry / background refresh never hides
                 // already-visible departures behind a spinner.
+                // The block names the direction: only short runs get a "→ …" label.
                 group.departures.isNotEmpty() -> group.departures.forEach { departure ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        DepartureTimeText(departure = departure, modifier = Modifier.padding(vertical = 2.dp))
-                        // Short run (ends before the block's terminus): say where it stops.
-                        departure.shortRunDestination(group.direction.name)?.let { destination ->
-                            Text(
-                                text = "→ $destination",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
-                        }
-                    }
+                    DepartureRow(
+                        departure = departure,
+                        fixedDirectionName = group.direction.name,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
                 }
 
                 // Line/direction known from cache, no times yet -> per-block spinner.
