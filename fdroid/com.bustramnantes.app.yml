@@ -11,9 +11,8 @@
 # Release flow: bump versionCode/versionName, commit, tag v<versionName>, run
 # fdroid/sign-release.sh, attach app-release.apk to the GitHub release.
 #
-# Before submitting, replace <APK_SHA256_SIGNING_FINGERPRINT> with the release
-# key's SHA-256 (lowercase hex, no colons):
-#   apksigner verify --print-certs app-release.apk | grep SHA-256
+# AllowedAPKSigningKeys = SHA-256 of the release key's certificate (lowercase hex,
+# no colons):  apksigner verify --print-certs app-release.apk | grep SHA-256
 #
 # Run `fdroid rewritemeta com.bustramnantes.app` and `fdroid lint
 # com.bustramnantes.app` to auto-format and validate field order.
@@ -67,7 +66,7 @@ Builds:
     gradle:
       - yes
 
-AllowedAPKSigningKeys: <APK_SHA256_SIGNING_FINGERPRINT>
+AllowedAPKSigningKeys: 744e045d95b339648687b5a1517fcb6a98fc557157980bbaad8b035ee94829b1
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
