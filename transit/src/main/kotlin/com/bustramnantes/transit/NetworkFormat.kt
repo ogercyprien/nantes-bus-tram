@@ -26,11 +26,14 @@ import kotlin.math.roundToInt
  *
  * Versions: 1 = up to the shapes; **2** = + an optional footpaths section (a boolean, then per quay
  * the count and (to-quay delta, metres) pairs - see [Footpaths]). Version 1 is still read (no
- * footpaths: the router computes them, or walks crow-fly).
+ * footpaths: the router computes them, or walks crow-fly). **3** = + an optional ride-shapes section
+ * (a boolean, then the hop count; per hop the from/to quay numbers - from delta-encoded, hops being
+ * sorted - and its interior points delta-encoded in micro-degrees, continuing from the previous
+ * hop's last point - see [RideShapes]). Versions 1 and 2 are still read (rides drawn stop to stop).
  */
 object NetworkFormat {
-    const val VERSION = 2
-    private val READABLE = setOf(1, 2)
+    const val VERSION = 3
+    private val READABLE = setOf(1, 2, 3)
     private val MAGIC = "NAOLNETW".toByteArray(Charsets.US_ASCII)
 
     fun write(network: TransitNetwork, out: OutputStream) {
@@ -122,6 +125,21 @@ object NetworkFormat {
                     val range = fp.of(q)
                     d.varint(range.last - range.first + 1)
                     for (i in range) { d.zigzag(fp.to[i] - q); d.varint(fp.meters[i]) }
+                }
+            }
+
+            val rs = rideShapes
+            d.writeBoolean(rs != null)
+            if (rs != null) {
+                d.varint(rs.size)
+                var prevFrom = 0; var la0 = 0; var lo0 = 0
+                for (i in 0 until rs.size) {
+                    val from = (rs.keys[i] ushr 32).toInt(); val to = rs.keys[i].toInt()
+                    d.varint(from - prevFrom); d.varint(to); prevFrom = from
+                    d.varint(rs.start[i + 1] - rs.start[i])
+                    for (k in rs.start[i] until rs.start[i + 1]) {
+                        d.zigzag(rs.lat[k] - la0); d.zigzag(rs.lon[k] - lo0); la0 = rs.lat[k]; lo0 = rs.lon[k]
+                    }
                 }
             }
         }
@@ -236,6 +254,22 @@ object NetworkFormat {
             null
         }
 
+        val rideShapes = if (version >= 3 && d.readBoolean()) {
+            val n = d.varint()
+            val keys = LongArray(n); val start = IntArray(n + 1)
+            val la = ArrayList<Int>(); val lo = ArrayList<Int>()
+            var from = 0; var la0 = 0; var lo0 = 0
+            for (i in 0 until n) {
+                from += d.varint()
+                keys[i] = RideShapes.key(from, d.varint())
+                repeat(d.varint()) { la0 += d.zigzag(); lo0 += d.zigzag(); la += la0; lo += lo0 }
+                start[i + 1] = la.size
+            }
+            RideShapes(keys, start, la.toIntArray(), lo.toIntArray())
+        } else {
+            null
+        }
+
         return TransitNetwork(
             formatVersion = version, feedId = feedId, validFrom = validFrom, dayCount = dayCount, timezone = timezone,
             routes = routes, stopPlaces = stopPlaces,
@@ -245,7 +279,7 @@ object NetworkFormat {
             tripServiceSet = tripSet, tripHeadsign = tripHeadsign, headsigns = headsigns,
             profileArrivals = profileArr.requireNoNulls(), profileDepartures = profileDep.requireNoNulls(),
             serviceSets = serviceSets, vjNumbers = vjNumbers, vjTrips = vjTrips, shapes = shapes,
-            footpaths = footpaths,
+            footpaths = footpaths, rideShapes = rideShapes,
         )
     }
 

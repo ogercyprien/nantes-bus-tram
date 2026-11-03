@@ -6,7 +6,9 @@ import com.bustramnantes.app.domain.model.DataResult
 import com.bustramnantes.app.domain.repository.NetworkConnectivityObserver
 import com.bustramnantes.transit.NetworkFormat
 import com.bustramnantes.transit.TransitNetwork
+import com.bustramnantes.transit.RideShapes
 import com.bustramnantes.transit.crosswalk
+import com.bustramnantes.transit.withRideShapes
 import com.bustramnantes.transit.gtfs.GtfsConverter
 import com.bustramnantes.transit.gtfs.BacsDeLoire
 import com.bustramnantes.transit.gtfs.GtfsSource
@@ -100,9 +102,15 @@ class TransitNetworkRepository @Inject constructor(
         return GtfsSource.zip(zip).appending(GtfsSource.zip(bacs), BacsDeLoire.SPEC) to { bacs.delete() }
     }
 
-    /** [converted] with its quay-to-quay walks computed on the walking graph (when available). */
-    private fun withStreetFootpaths(converted: TransitNetwork): TransitNetwork =
-        walkGraph?.let { converted.withFootpaths(Footpaths.compute(converted, it)) } ?: converted
+    /**
+     * [converted] with its quay-to-quay walks computed on the walking graph (when available) and the
+     * ride street paths of [current] for every stop-to-stop hop it still has (OSM routing needs the
+     * build-time extract; a new hop is drawn straight until the next seed).
+     */
+    private fun withCarriedOverData(converted: TransitNetwork, current: TransitNetwork): TransitNetwork {
+        val walked = walkGraph?.let { converted.withFootpaths(Footpaths.compute(converted, it)) } ?: converted
+        return walked.withRideShapes(RideShapes.carriedOver(converted, current))
+    }
 
     /** The current network index; emits again whenever a refreshed network is installed. */
     val indexes: Flow<NetworkIndex> = _index.filterNotNull()
@@ -207,8 +215,9 @@ class TransitNetworkRepository @Inject constructor(
                 val (source, cleanup) = withBacs(zip)
                 val converted = try {
                     withContext(Dispatchers.Default) {
-                        withStreetFootpaths(
+                        withCarriedOverData(
                             GtfsConverter(source, feedId = feed.fileId, crosswalk = current.crosswalk()).convert(),
+                            current,
                         )
                     }
                 } finally {
@@ -247,7 +256,7 @@ class TransitNetworkRepository @Inject constructor(
             val (source, cleanup) = withBacs(zip)
             val converted = try {
                 withContext(Dispatchers.Default) {
-                    withStreetFootpaths(GtfsConverter(source, feedId = feed.fileId, crosswalk = current.crosswalk()).convert())
+                    withCarriedOverData(GtfsConverter(source, feedId = feed.fileId, crosswalk = current.crosswalk()).convert(), current)
                 }
             } finally {
                 cleanup()
@@ -279,7 +288,9 @@ class TransitNetworkRepository @Inject constructor(
         val installed = runCatching {
             installedFile()?.takeIf { it.isFile }?.inputStream()?.buffered()?.use { NetworkFormat.read(it) }
         }.getOrNull()
-        return if (installed != null && !installed.validUntil.isBefore(seed.validUntil)) installed else seed
+        if (installed == null || installed.validUntil.isBefore(seed.validUntil)) return seed
+        // A network downloaded by a version without ride paths (or with fewer): fill in the seed's.
+        return installed.withRideShapes(RideShapes.carriedOver(installed, installed, seed))
     }
 
     companion object {

@@ -253,7 +253,7 @@ object WalkGraphBuilder {
     }
 
     /** Node coordinates by id (ids arrive sorted in Geofabrik extracts; sorted at [seal] otherwise). */
-    private class NodeStore {
+    internal class NodeStore {
         private var ids = LongArray(1 shl 20)
         private var lats = IntArray(1 shl 20)
         private var lons = IntArray(1 shl 20)

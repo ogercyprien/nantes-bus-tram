@@ -125,6 +125,11 @@ class TransitNetwork(
      * without the graph (fixtures) - the router then uses [Footpaths.crowFly].
      */
     val footpaths: Footpaths? = null,
+    /**
+     * Street paths between consecutive stops, from OSM ([RideShapes]); null for a network packed
+     * without them (format < 3, fixtures) - rides are then drawn stop to stop.
+     */
+    val rideShapes: RideShapes? = null,
 ) {
     val validUntil: LocalDate get() = validFrom.plusDays(dayCount.toLong() - 1)
 

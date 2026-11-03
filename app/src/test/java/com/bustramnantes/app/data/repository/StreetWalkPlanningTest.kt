@@ -14,7 +14,7 @@ import kotlinx.datetime.LocalTime
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** [planJourneys] on the bundled seed network + OSM walking graph: walks follow the streets. */
+/** [planJourneys] on the bundled seed network + OSM walking graph: walks and rides follow the streets. */
 class StreetWalkPlanningTest {
 
     private val network = File("src/main/assets/seed/network.bin").inputStream().use(NetworkFormat::read)
@@ -48,5 +48,22 @@ class StreetWalkPlanningTest {
         val js = planJourneys(index, 47.2085, -1.5690, 47.1975, -1.5720, tuesday10)
         assertTrue(js.none { j -> j.sections.all { it is JourneySection.Walking } })
         assertTrue(js.isNotEmpty())
+    }
+
+    @Test
+    fun `rides follow the streets, through every stop`() {
+        assertTrue("seed has ride shapes", (network.rideShapes?.size ?: 0) > 2_500)
+        // Gare Sud -> Le Cardo: C2 and trams.
+        val js = planJourneys(index, 47.2173, -1.5410, 47.2600, -1.5570, tuesday10)
+        val rides = js.flatMap { j -> j.sections.filterIsInstance<JourneySection.Transit>() }
+        assertTrue(rides.isNotEmpty())
+        for (ride in rides) {
+            val points = parseWktLineString(ride.tripGeometryWkt)
+            assertTrue("${ride.lineNumber}: ${points.size} points for ${ride.concernedStops.size} stops", points.size > ride.concernedStops.size)
+            for (stop in ride.concernedStops) assertTrue(points.any { (la, lo) -> la == stop.lat && lo == stop.lon })
+            val pathLength = points.zipWithNext().sumOf { (a, b) -> haversineMeters(a.first, a.second, b.first, b.second) }
+            val stopToStop = ride.concernedStops.zipWithNext().sumOf { (a, b) -> haversineMeters(a.lat, a.lon, b.lat, b.lon) }
+            assertTrue("${ride.lineNumber}: $pathLength vs $stopToStop", pathLength >= stopToStop && pathLength < stopToStop * 1.8)
+        }
     }
 }

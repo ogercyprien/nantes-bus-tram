@@ -3,12 +3,15 @@ package com.bustramnantes.transit.tools
 import com.bustramnantes.transit.Crosswalk
 import com.bustramnantes.transit.NetworkFormat
 import com.bustramnantes.transit.OfficialStop
+import com.bustramnantes.transit.RideShapes
 import com.bustramnantes.transit.gtfs.GtfsConverter
+import com.bustramnantes.transit.hopKeys
 import com.bustramnantes.transit.gtfs.BacsDeLoire
 import com.bustramnantes.transit.gtfs.GtfsSource
 import com.bustramnantes.transit.gtfs.appending
 import com.bustramnantes.transit.withCrosswalk
 import com.bustramnantes.transit.withFootpaths
+import com.bustramnantes.transit.withRideShapes
 import com.bustramnantes.transit.walk.Footpaths
 import com.bustramnantes.transit.walk.WalkGraphFormat
 import kotlinx.serialization.json.Json
@@ -29,8 +32,9 @@ import java.net.URI
  * file id changes on every publication - never hard-code it), append the Bacs de Loire
  * ([BacsDeLoire]), convert it, build the display-position [Crosswalk] against the official map's stop
  * list `transit/seed/logical_stops.geojson`, compute the quay-to-quay [Footpaths] on the bundled
- * walking graph (`assets/seed/walk_graph.bin`, see `PackWalkGraph`), and write the packed file.
- * Prints how many StopPlaces took the official position.
+ * walking graph (`assets/seed/walk_graph.bin`, see `PackWalkGraph`), carry the ride street paths of the
+ * previous seed over ([RideShapes.carriedOver] - `PackRideShapes` builds them from OSM), and write the
+ * packed file. Prints how many StopPlaces took the official position and how many hops kept a path.
  */
 fun main(args: Array<String>) {
     val out = File(args[0])
@@ -59,13 +63,16 @@ fun main(args: Array<String>) {
     val crosswalk = Crosswalk.build(raw, official)
     val walkGraph = args.getOrNull(3)?.let(::File)?.takeIf { it.isFile }?.inputStream()?.use(WalkGraphFormat::read)
     val footpaths = walkGraph?.let { Footpaths.compute(raw, it) }
-    val network = raw.withCrosswalk(crosswalk).withFootpaths(footpaths)
+    val previous = out.takeIf { it.isFile }?.let { f -> runCatching { f.inputStream().buffered().use(NetworkFormat::read) }.getOrNull() }
+    val rideShapes = RideShapes.carriedOver(raw, previous)
+    val network = raw.withCrosswalk(crosswalk).withFootpaths(footpaths).withRideShapes(rideShapes)
     out.parentFile.mkdirs()
     out.outputStream().buffered().use { NetworkFormat.write(network, it) }
 
     println("wrote ${out.path} (${out.length() / 1024} KB): ${network.stopPlaces.size} stop places, ${network.tripCount} trips, valid ${network.validFrom}..${network.validUntil}")
     println("stop places at their official map position: ${network.stopPlaces.count { it.hasDisplayPosition }} of ${network.stopPlaces.size}")
     println(if (footpaths != null) "footpaths: ${footpaths.pairCount} quay pairs on walk graph ${walkGraph.source}" else "footpaths: none (no walk graph)")
+    println("ride paths carried over: ${rideShapes?.size ?: 0} of ${raw.hopKeys().size} hops (run :transit:packRideShapes to route the rest)")
 }
 
 private const val BACS_ASSET_NAME = "bacs_de_loire.zip"

@@ -54,6 +54,18 @@ tasks.register<JavaExec>("packSeed") {
     maxHeapSize = "1g"
 }
 
+tasks.register<JavaExec>("packRideShapes") {
+    group = "transit"
+    description = "Adds OSM street paths for every ride hop to app/src/main/assets/seed/network.bin (-Posm=/path.osm.pbf)."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.bustramnantes.transit.tools.PackRideShapesKt")
+    args(
+        rootProject.file("app/src/main/assets/seed/network.bin").path,
+        providers.gradleProperty("osm").getOrElse(""),
+    )
+    maxHeapSize = "3g"
+}
+
 tasks.register<JavaExec>("packWalkGraph") {
     group = "transit"
     description = "Regenerates app/src/main/assets/seed/walk_graph.bin from a Geofabrik extract (-Posm=/path.osm.pbf)."

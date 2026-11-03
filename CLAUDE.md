@@ -16,6 +16,7 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 ./gradlew :app:compileDebugKotlin                # quick type-check
 ./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin from the current GTFS
 ./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate assets/seed/walk_graph.bin
+./gradlew :transit:packRideShapes -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf # add OSM ride paths to assets/seed/network.bin
 ```
 - Android SDK is at `~/android-sdk` (`local.properties` has `sdk.dir`). Java/gradle work out of the box.
 - **No emulator/device is available in this sandbox** — you cannot run the app or screenshot it.
@@ -35,6 +36,7 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 | Bacs de Loire B1/B2 (not in the Naolib GTFS) | **GTFS of the Département 44** (data.loire-atlantique.fr, Licence Ouverte), appended at conversion | `:transit` `gtfs/BacsDeLoire`, `AppendedFeed` |
 | Itineraries | **on the device**, RAPTOR over the GTFS | `LocalItineraryRepository`, `:transit` `raptor/` |
 | Walking (itineraries) | **OSM** pedestrian graph of Nantes Métropole (Geofabrik extract, ODbL), packed ~1.1 MB | `:transit` `walk/`, `NetworkIndex.walkGraph` |
+| Ride paths (drawing a ride) | **OSM** bus/tram graphs + Naolib route relations (same extract), per stop-to-stop hop, in `network.bin` | `:transit` `RideShapes`, `tools/RideShapeBuilder` |
 | Real-time departures | **Okina SIRI StopMonitoring** (keyless) | `RealtimeGateway`, `OkinaClient` |
 | Provisional real-time | Okina GTFS-RT TripUpdates (own budget) | `RealtimeGateway` |
 | Disruption notices | **Okina GTFS-RT Alerts** (shares the GTFS-RT budget) | `GtfsRtDisruptionRepository` |
@@ -74,8 +76,19 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   StopPlace took that official stop by name, else GTFS. 1,098/1,101 StopPlaces matched. Five geojson
   names lag the current ones (`Crosswalk.STALE_NAMES`). `Crosswalk.SEARCH_ALIASES` (former names) is
   **intentionally empty** — the hook stays for a future rename not yet in GTFS.
-- `NetworkFormat`: magic `NAOLNETW`, **v2** (v1 = without the footpaths section, still readable). Bump
-  the version on any layout change: an unreadable download falls back to the seed.
+- `NetworkFormat`: magic `NAOLNETW`, **v3** (v1 = without footpaths, v2 = without ride shapes, both
+  still readable). Bump the version on any layout change: an unreadable download falls back to the seed.
+- **Ride paths** (`:transit` `RideShapes`, format v3): the GTFS shapes are useless for drawing (all
+  one point per stop), so every stop-to-stop **hop** has its street path from OSM, built by
+  `:transit:packRideShapes` (`tools/RideShapeBuilder` + `VehicleGraph`): bus graph / tram graph from the
+  Geofabrik extract, routed hop by hop with the lines' OSM route relations as a guide (relation ways
+  1×, others 1.6×; a gap or a line without relation is bridged by routing; straight when a stop is
+  > 80 m off the graph or the path is > 2.5 × crow-fly + 300 m; ferries straight). Keyed by **quay
+  numbers** (stable across publications) and only the interior points are stored (the ends are the
+  current quays). `packSeed` and the on-device conversion **carry them over** (`RideShapes.carriedOver`):
+  a new GTFS keeps every hop it shares with the previous network (and the seed's, for a download made
+  by an older version - `loadBest`); a truly new hop is straight until the next `packRideShapes`.
+  `LocalItineraryRepository.rideGeometry` = `TransitNetwork.ridePath` (quays + hop paths). SOURCES.md §8.
 - Served lines (`NetworkIndex.servedLines`) come from patterns and are **terminus-aware** (a direction
   the stop only ends is omitted).
 - Theoretical timetables (`TheoreticalTimetableRepositoryImpl`) are computed locally per service day,
@@ -319,7 +332,7 @@ PNG through the `${applicationId}.fileprovider`; texts from `JourneyShareText.kt
 departures are flagged everywhere and near-term itineraries avoid them. Disruption notices (GTFS-RT
 Alerts) on stops, favorites, itineraries and a "Perturbations" screen.
 Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `RealtimeTest`,
-`RealNetworkBenchmarkTest` (seed network). Tests (`:app`): `NetworkIndexTest`, `FavoriteRekeyerTest`,
+`RealNetworkBenchmarkTest` (seed network), `RideShapesTest`. Tests (`:app`): `NetworkIndexTest`, `FavoriteRekeyerTest`,
 `StopMergeTest`, `RealtimeGatewayTest`, `RequestBudgetTest`, `LocalItineraryRepositoryTest`,
 `JourneyPhantomCheckTest`, `JourneyWalkTrimmingTest`, `DepartureGroupingTest`, `PhantomDeparturesTest`,
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,

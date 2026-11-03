@@ -155,7 +155,7 @@ fun TransitNetwork.withCrosswalk(crosswalk: Map<Int, CrosswalkEntry>): TransitNe
         formatVersion, feedId, validFrom, dayCount, timezone, routes, places,
         quayNumber, quayStopPlace, quayLat, quayLon, patterns,
         tripPattern, tripStart, tripProfile, tripServiceSet, tripHeadsign, headsigns,
-        profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths,
+        profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths, rideShapes,
     )
 }
 
@@ -164,5 +164,13 @@ fun TransitNetwork.withFootpaths(footpaths: Footpaths?): TransitNetwork = Transi
     formatVersion, feedId, validFrom, dayCount, timezone, routes, stopPlaces,
     quayNumber, quayStopPlace, quayLat, quayLon, patterns,
     tripPattern, tripStart, tripProfile, tripServiceSet, tripHeadsign, headsigns,
-    profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths,
+    profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths, rideShapes,
+)
+
+/** This network with [rideShapes] (null = rides drawn stop to stop). */
+fun TransitNetwork.withRideShapes(rideShapes: RideShapes?): TransitNetwork = TransitNetwork(
+    formatVersion, feedId, validFrom, dayCount, timezone, routes, stopPlaces,
+    quayNumber, quayStopPlace, quayLat, quayLon, patterns,
+    tripPattern, tripStart, tripProfile, tripServiceSet, tripHeadsign, headsigns,
+    profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths, rideShapes,
 )

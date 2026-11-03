@@ -520,6 +520,17 @@ Data it needs:
   not reachable from the dev sandbox.
 - Real-time adjustment: SIRI StopMonitoring for boarding stops (trip ids join directly). GTFS-RT is
   too incomplete to drive routing.
+- Ride geometry (what a ride is drawn along): **not the GTFS shapes** - all 314 `shapes.txt` shapes
+  have exactly one point per stop (C2: 29 points, median 250-300 m apart), so a ride drawn from them
+  cuts through buildings. **OSM (used)**, same Geofabrik extract: every stop-to-stop hop routed on a
+  bus graph (roads a bus may use, one-way respected unless `oneway:bus|psv=no`) or a tram graph
+  (`railway=tram`), guided by the **OSM route relations** (`type=route`, `network=Naolib` or `TAN`,
+  `ref` = short name; 169 relations, PTv2): their ways cost 1×, others 1.6×. Extract of 2026-10-11:
+  63 of 94 non-ferry lines have relations (missing: almost every 1xx line, 1B, 3B, CNO, TE3); 115 of
+  179 relations chain end to end, the others have gaps the routing bridges. Result: 2,875 hops,
+  2,853 routed, 10 straight (stop off the graph / no path / absurd detour), ferries straight;
+  routed length median 1.07 × crow-fly, 82 % on the lines' own relations; ~32 k points, +104 KB in
+  `network.bin`. Visual check on 10 random itineraries against the OSM basemap: street-accurate.
 
 ## 9. Verified 2026-10-12 (open data vs the official app)
 

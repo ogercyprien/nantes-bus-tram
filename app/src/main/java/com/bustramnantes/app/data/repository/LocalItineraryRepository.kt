@@ -11,6 +11,7 @@ import com.bustramnantes.app.domain.model.PathLink
 import com.bustramnantes.app.domain.model.TimeSourceType
 import com.bustramnantes.app.domain.repository.ItineraryRepository
 import com.bustramnantes.transit.haversineMeters
+import com.bustramnantes.transit.ridePath
 import com.bustramnantes.transit.serviceDayStart
 import com.bustramnantes.transit.raptor.AccessPoint
 import com.bustramnantes.transit.raptor.RaptorJourney
@@ -266,33 +267,14 @@ private fun ride(index: NetworkIndex, leg: RaptorLeg.Ride): JourneySection.Trans
 }
 
 /**
- * The ride's path: the GTFS shape between the boarding and alighting quays (each projected on its
- * nearest shape vertex, searched in order along the shape), or the straight polyline through the
- * served quays when the pattern has no shape.
+ * The ride's path: the street path of each stop-to-stop hop from the boarding to the alighting quay
+ * ([com.bustramnantes.transit.RideShapes], from OSM), or a straight line for a hop without one (ferries,
+ * a hop newer than the shapes). The GTFS shapes are not used: Naolib's are one point per stop.
  */
 private fun rideGeometry(index: NetworkIndex, leg: RaptorLeg.Ride): String {
     val network = index.network
-    val pattern = network.patterns[leg.pattern]
-    val quays = (leg.boardPosition..leg.alightPosition).map { pattern.quays[it] }
-    val shape = pattern.shape.takeIf { it >= 0 }?.let { network.shapes[it] }
-    val points: List<Pair<Double, Double>> = if (shape != null && shape.size >= 4) {
-        val n = shape.size / 2
-        fun nearest(q: Int, from: Int): Int {
-            var best = from
-            var bestD = Double.MAX_VALUE
-            for (k in from until n) {
-                val d = haversineMeters(network.quayLat[q], network.quayLon[q], shape[2 * k], shape[2 * k + 1])
-                if (d < bestD) { bestD = d; best = k }
-            }
-            return best
-        }
-        val a = nearest(quays.first(), 0)
-        val b = nearest(quays.last(), a)
-        (a..b).map { shape[2 * it] to shape[2 * it + 1] }.ifEmpty { quays.map { network.quayLat[it] to network.quayLon[it] } }
-    } else {
-        quays.map { network.quayLat[it] to network.quayLon[it] }
-    }
-    return lineString(points)
+    val path = network.ridePath(network.patterns[leg.pattern], leg.boardPosition, leg.alightPosition)
+    return lineString(path.map { it[0] to it[1] })
 }
 
 /**
