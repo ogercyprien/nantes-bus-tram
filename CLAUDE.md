@@ -304,6 +304,9 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   the `#`. `LineBadge` accepts either.
 - Bash tool: control characters in commands are rejected — use a Python script file for those edits.
 - Persistent env: `/etc/sandbox-persistent.sh` (never put shell completions there — breaks bash).
+- **Shared map component**: `presentation/common/map/NaolibMapView` = lifecycle-forwarded `MapView` +
+  base style (glyphs, beige backdrop, OSM basemap); a screen adds its own sources/layers in
+  `onStyleLoaded(map, style)` (Plan tab: network raster + labels + stops; itinerary maps: rides/walks).
 - **MapLibre init order at startup.** `HttpRequestUtil.setOkHttpClient()` triggers MapLibre's
   `HttpRequestImpl` static init → `MapLibre.getApplicationContext()`, which throws if
   `MapLibre.getInstance()` hasn't run. `BusEtTramApplication.onCreate` therefore calls

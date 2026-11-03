@@ -2,12 +2,8 @@ package com.bustramnantes.app.presentation.map
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Configuration
-import android.os.Bundle
-import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,7 +27,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,17 +38,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.bustramnantes.app.domain.model.Stop
 import com.bustramnantes.app.presentation.common.components.OfflineAwareContent
+import com.bustramnantes.app.presentation.common.map.NaolibMapView
 import com.bustramnantes.app.presentation.common.navigation.Screen
 import com.bustramnantes.app.presentation.stop.StopDetailEffect
 import com.bustramnantes.app.presentation.stop.StopDetailSheetInner
@@ -64,7 +56,6 @@ import com.bustramnantes.app.presentation.common.utils.isWithinNantesArea
 import com.bustramnantes.app.presentation.map.components.MapSearchBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.location.LocationComponent
@@ -72,7 +63,6 @@ import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.sources.GeoJsonSource
 
@@ -88,8 +78,8 @@ private const val TAP_TOLERANCE_DP = 20f
 private val STOP_SHEET_PEEK_HEIGHT = 300.dp
 
 /**
- * Full-screen Naolib network map. Embeds a MapLibre Native `MapView` via `AndroidView`
- * with full lifecycle forwarding.
+ * Full-screen Naolib network map, on the shared [NaolibMapView] (base style + lifecycle forwarding)
+ * with the network raster lines, line labels and stops on top.
  *
  * Unlike the Home/Search/Itinerary entry points (which open Stop Detail as a `ModalBottomSheet` over
  * a `dialog()` destination), the map hosts the **same sheet body** ([StopDetailSheetInner]) itself,
@@ -196,77 +186,57 @@ fun MapScreen(
         }
     }
 
-    val mapView = rememberMapViewWithLifecycle()
-
-    // Obtain the MapLibreMap once per MapView instance.
-    LaunchedEffect(mapView) {
-        mapView.getMapAsync { map -> mapLibreMap = map }
-    }
-
-    // Build the style (sources/layers) once per map instance, then wire the click listener.
-    LaunchedEffect(mapLibreMap) {
-        val map = mapLibreMap ?: return@LaunchedEffect
-        if (style != null) return@LaunchedEffect
-        // Move the compass to the bottom-right so it isn't hidden behind the top search bar (the bar
-        // spans the full width, so any top-anchored compass would sit under it). The map view's own
-        // bottom edge already sits above the bottom nav bar, so bottom-right is clear.
+    // Adds this screen's layers on top of the shared base style (backdrop + OSM, see NaolibMapView)
+    // once per map instance, then wires the click listener.
+    fun onStyleLoaded(map: MapLibreMap, loadedStyle: Style) {
         val density = context.resources.displayMetrics.density
-        // Bottom-LEFT: the top edge is under the search bar, and the bottom-right now holds the
+        // Bottom-LEFT: the top edge is under the search bar, and the bottom-right holds the
         // "recenter on me" FAB, so the compass would collide with it there.
         map.uiSettings.setCompassGravity(android.view.Gravity.BOTTOM or android.view.Gravity.START)
         map.uiSettings.setCompassMargins((12 * density).toInt(), 0, 0, (16 * density).toInt())
-        // Start from a minimal base style that declares a glyphs (font) source, otherwise the
-        // line-number SymbolLayer has no fonts and its text silently never renders - see
-        // MapStyleIds.baseStyleJson. Sources/layers are then added programmatically on top.
-        map.setStyle(Style.Builder().fromJson(MapStyleIds.baseStyleJson())) { loadedStyle ->
-            // Beige backdrop first (bottom of the stack) so unloaded/offline areas look like a
-            // loading map instead of a black void - see MapStyleIds.backgroundLayer.
-            loadedStyle.addLayer(MapStyleIds.backgroundLayer())
-            loadedStyle.addSource(MapStyleIds.osmRasterSource())
-            loadedStyle.addLayer(MapStyleIds.osmRasterLayer())
-            // Visible colored line traces: a pre-rendered raster overlay whose parallel-lane
-            // separation is baked in upstream (matches the official Naolib map; the vector tiles
-            // can't produce non-overlapping lanes) - see MapStyleIds.SOURCE_NETWORK_RASTER.
-            loadedStyle.addSource(MapStyleIds.networkRasterSource())
-            loadedStyle.addLayer(MapStyleIds.networkRasterLayer())
-            // Vector network source kept only for line-number labels drawn along the routes.
-            loadedStyle.addSource(MapStyleIds.networkVectorSource())
-            loadedStyle.addLayer(MapStyleIds.networkLabelLayer())
-            // Selected-stop halo is added BEFORE the stops layer so the white stop dot draws on top
-            // of its highlight ring (the ring surrounds the dot rather than covering it).
-            loadedStyle.addSource(MapStyleIds.selectedStopSource(selectedStop))
-            loadedStyle.addLayer(MapStyleIds.selectedStopLayer())
-            loadedStyle.addSource(MapStyleIds.stopsGeoJsonSource(latestStops))
-            loadedStyle.addLayer(MapStyleIds.stopsCircleLayer())
+        // Visible colored line traces: a pre-rendered raster overlay whose parallel-lane
+        // separation is baked in upstream (matches the official Naolib map; the vector tiles
+        // can't produce non-overlapping lanes) - see MapStyleIds.SOURCE_NETWORK_RASTER.
+        loadedStyle.addSource(MapStyleIds.networkRasterSource())
+        loadedStyle.addLayer(MapStyleIds.networkRasterLayer())
+        // Vector network source kept only for line-number labels drawn along the routes.
+        loadedStyle.addSource(MapStyleIds.networkVectorSource())
+        loadedStyle.addLayer(MapStyleIds.networkLabelLayer())
+        // Selected-stop halo is added BEFORE the stops layer so the white stop dot draws on top
+        // of its highlight ring (the ring surrounds the dot rather than covering it).
+        loadedStyle.addSource(MapStyleIds.selectedStopSource(selectedStop))
+        loadedStyle.addLayer(MapStyleIds.selectedStopLayer())
+        loadedStyle.addSource(MapStyleIds.stopsGeoJsonSource(latestStops))
+        loadedStyle.addLayer(MapStyleIds.stopsCircleLayer())
 
-            map.moveCamera(
-                CameraUpdateFactory.newLatLngZoom(LatLng(NANTES_LATITUDE, NANTES_LONGITUDE), DEFAULT_ZOOM),
+        map.moveCamera(
+            CameraUpdateFactory.newLatLngZoom(LatLng(NANTES_LATITUDE, NANTES_LONGITUDE), DEFAULT_ZOOM),
+        )
+
+        val tapTolerancePx = TAP_TOLERANCE_DP * density
+        map.addOnMapClickListener { latLng ->
+            val screenPoint = map.projection.toScreenLocation(latLng)
+            // Query a padded box (not the exact pixel) so small stop dots are forgiving to tap.
+            val tapBox = android.graphics.RectF(
+                screenPoint.x - tapTolerancePx,
+                screenPoint.y - tapTolerancePx,
+                screenPoint.x + tapTolerancePx,
+                screenPoint.y + tapTolerancePx,
             )
-
-            val tapTolerancePx = TAP_TOLERANCE_DP * density
-            map.addOnMapClickListener { latLng ->
-                val screenPoint = map.projection.toScreenLocation(latLng)
-                // Query a padded box (not the exact pixel) so small stop dots are forgiving to tap.
-                val tapBox = android.graphics.RectF(
-                    screenPoint.x - tapTolerancePx,
-                    screenPoint.y - tapTolerancePx,
-                    screenPoint.x + tapTolerancePx,
-                    screenPoint.y + tapTolerancePx,
-                )
-                val tappedFeature = map.queryRenderedFeatures(tapBox, MapStyleIds.LAYER_STOPS).firstOrNull()
-                val tappedStopId = tappedFeature?.getStringProperty(MapStyleIds.STOP_PROPERTY_ID)
-                val tappedStop = tappedStopId?.let { id -> latestStops.firstOrNull { it.id == id } }
-                if (tappedStop != null) {
-                    selectStopOnMap(tappedStop)
-                } else {
-                    // Tap on empty map -> dismiss the sheet (reveals the whole map).
-                    scope.launch { sheetState.bottomSheetState.hide() }
-                }
-                true
+            val tappedFeature = map.queryRenderedFeatures(tapBox, MapStyleIds.LAYER_STOPS).firstOrNull()
+            val tappedStopId = tappedFeature?.getStringProperty(MapStyleIds.STOP_PROPERTY_ID)
+            val tappedStop = tappedStopId?.let { id -> latestStops.firstOrNull { it.id == id } }
+            if (tappedStop != null) {
+                selectStopOnMap(tappedStop)
+            } else {
+                // Tap on empty map -> dismiss the sheet (reveals the whole map).
+                scope.launch { sheetState.bottomSheetState.hide() }
             }
-
-            style = loadedStyle
+            true
         }
+
+        mapLibreMap = map
+        style = loadedStyle
     }
 
     // Keep the stops GeoJSON source in sync with the Room-backed cache.
@@ -403,10 +373,7 @@ fun MapScreen(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             OfflineAwareContent(modifier = Modifier.fillMaxSize()) {
-                AndroidView(
-                    factory = { mapView },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                NaolibMapView(onStyleLoaded = ::onStyleLoaded, modifier = Modifier.fillMaxSize())
             }
 
             MapSearchBar(
@@ -465,79 +432,4 @@ private fun enableLocationComponent(map: MapLibreMap, style: Style, context: Con
     } catch (_: SecurityException) {
         null
     }
-}
-
-/**
- * Creates a MapLibre [MapView] and forwards every relevant Android lifecycle event to it
- * (onCreate/onStart/onResume/onPause/onStop/onDestroy/onLowMemory), since `MapView` is a classic
- * Android `View` that needs these calls to manage its internal GL surface/tile cache correctly.
- *
- * `onSaveInstanceState` has no dedicated [Lifecycle.Event] (it's an `Activity`-callback concept,
- * not a lifecycle state) - this module cannot hook the real `Activity.onSaveInstanceState` without
- * touching `MainActivity`, which is out of scope here. As a best-effort proxy, `ON_PAUSE` (which
- * reliably fires before an owning `Activity`'s real `onSaveInstanceState` in practice) also calls
- * `mapView.onSaveInstanceState(Bundle())`. Camera position itself is intentionally not treated as
- * state worth restoring since the default-camera logic above is cheap to recompute. Flagged for
- * integration to revisit if precise state restoration (e.g. surviving process death) is required.
- */
-@Composable
-private fun rememberMapViewWithLifecycle(): MapView {
-    val context = LocalContext.current
-    val mapView = remember {
-        MapLibre.getInstance(context)
-        MapView(context).apply { id = View.generateViewId() }
-    }
-
-    // Captured once (the effect below is keyed only on `mapView`, which never changes identity
-    // for the life of this composable) - stable for as long as this screen stays mounted, which
-    // holds for a single-Activity Navigation-Compose destination.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(mapView) {
-        var destroyed = false
-        fun destroyOnce() {
-            if (!destroyed) {
-                destroyed = true
-                mapView.onDestroy()
-            }
-        }
-
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> {
-                    mapView.onSaveInstanceState(Bundle())
-                    mapView.onPause()
-                }
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> destroyOnce()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        val componentCallbacks = object : ComponentCallbacks2 {
-            override fun onLowMemory() {
-                mapView.onLowMemory()
-            }
-
-            override fun onTrimMemory(level: Int) {
-                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) mapView.onLowMemory()
-            }
-
-            override fun onConfigurationChanged(newConfig: Configuration) = Unit
-        }
-        context.applicationContext.registerComponentCallbacks(componentCallbacks)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            context.applicationContext.unregisterComponentCallbacks(componentCallbacks)
-            // Guarantees cleanup even when this composable is disposed (e.g. switching bottom-nav
-            // tabs with `saveState = true`, which only stops - not destroys - the underlying
-            // NavBackStackEntry lifecycle) without waiting for a real ON_DESTROY event.
-            destroyOnce()
-        }
-    }
-    return mapView
 }
