@@ -50,8 +50,11 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 
 ### Static network (GTFS)
 - Publication resolved through `GET data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/
-  244400404_transports_commun_naolib_nantes_metropole_gtfs/records` → `fichier.id` (the change key;
-  the download URL embeds it — never hard-code it), `fichier.url`, validity. ~26 MB zip, ~3 months.
+  244400404_transports_commun_naolib_nantes_metropole_gtfs/records` → `fichier.id`, `fichier.url`,
+  validity (`debut_de_validite`/`fin_de_validite`). ~20–26 MB zip, ~3 months. **The file id is NOT a
+  change key**: the 2026-11-04 publication replaced the 2026-10-11 one under the same id (no ETag /
+  Last-Modified / size either). Change key = `GtfsPublication.key` = file id + validity window
+  (`TransitNetwork.feedId`, `GtfsFeed.key`). Never hard-code the URL.
 - `:transit` `GtfsConverter` streams it (stop_times 583 MB / 4.6 M rows, never materialised) and
   de-duplicates: 187,896 trips → ~42.6 k unique (pattern, times) trips, ~316 patterns, ~200 service
   bitsets. `NetworkFormat` packs it (varints + deflate) to ~300 KB with shapes and the trip-id join
@@ -59,8 +62,8 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   (always: `<serviceSuffix>` = the service id minus `FR_NAOLIB:Timetable:`), so only `vj → unique
   trip` pairs are stored; a SIRI/GTFS-RT trip id resolves via vj + the service day.
 - `TransitNetworkRepository`: bundled `assets/seed/network.bin` vs the last downloaded
-  `filesDir/network/<fileId>.bin` — **whichever is valid longest wins** (no seed version to bump).
-  Refresh = daily `CacheRefreshWorker` + once-a-day app-open check: new file id → download
+  `filesDir/network/<key>.bin` — **whichever is valid longest wins** (no seed version to bump).
+  Refresh = daily `CacheRefreshWorker` + once-a-day app-open check: new publication key → download
   (unmetered unless the installed feed ends within 3 days) → convert on the device with the current
   crosswalk carried over → write + re-read → atomic pointer swap. Settings "Effacer" → back to seed.
   Debug builds: Settings › Débogage converts on the phone and reports time/peak heap.

@@ -1,16 +1,23 @@
 package com.bustramnantes.app.data.network
 
 import com.bustramnantes.app.data.remote.opendata.OpenDataApiService
+import com.bustramnantes.transit.gtfs.GtfsPublication
 import java.time.LocalDate
 import javax.inject.Inject
 
-/** The current GTFS publication: its file id (change key), download URL and validity window. */
+/** The current GTFS publication: its portal file id, download URL and validity window. */
 data class GtfsFeed(
     val fileId: String,
     val url: String,
     val validFrom: LocalDate?,
     val validUntil: LocalDate?,
-)
+) {
+    /**
+     * Change key ([GtfsPublication.key]): file id + validity window - the portal republishes under
+     * the same file id, so the id alone would never see a new publication.
+     */
+    val key: String get() = GtfsPublication.key(fileId, validFrom?.toString(), validUntil?.toString())
+}
 
 /**
  * Resolves the newest GTFS publication through the open-data records API. Picks the record with the

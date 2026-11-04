@@ -211,7 +211,11 @@ Flowbird's MaaS platform behind the official Android app. Reverse-engineered fro
 
 - **Dataset:** data.nantesmetropole.fr `244400404_transports_commun_naolib_nantes_metropole_gtfs`
   (mirrored on transport.data.gouv.fr dataset `685d9000ec5a7481ab634360`, resource 84101).
-- **Download URL is not stable**: the file id inside the URL changes on each publication. Resolve
+- **Download URL is not stable**, and **neither id nor URL identifies a publication**: the
+  2026-11-04 publication (valid 2026-11-04 → 2027-02-05, 20 MB) replaced the 2026-10-11 one (valid
+  2026-10-09 → 2027-01-09, 26 MB) under the same file id and URL, and only the current one is kept.
+  The download sends no ETag, Last-Modified or Content-Length; the record has no checksum. The app
+  keys a publication by file id + validity window (`GtfsPublication.key`). Resolve
   it through the records API:
   `GET https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/244400404_transports_commun_naolib_nantes_metropole_gtfs/records?limit=20`
   → `results[0].fichier.url` (+ `debut_de_validite`, `fin_de_validite`). As of 2026-10-11:

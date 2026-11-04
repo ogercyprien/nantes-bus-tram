@@ -5,6 +5,7 @@ import com.bustramnantes.transit.NetworkFormat
 import com.bustramnantes.transit.OfficialStop
 import com.bustramnantes.transit.RideShapes
 import com.bustramnantes.transit.gtfs.GtfsConverter
+import com.bustramnantes.transit.gtfs.GtfsPublication
 import com.bustramnantes.transit.hopKeys
 import com.bustramnantes.transit.gtfs.BacsDeLoire
 import com.bustramnantes.transit.gtfs.GtfsSource
@@ -47,7 +48,7 @@ fun main(args: Array<String>) {
         println("GTFS ${feed.fileId}, valid ${feed.validFrom} .. ${feed.validUntil}")
         val tmp = File.createTempFile("gtfs", ".zip").apply { deleteOnExit() }
         URI(feed.url).toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
-        tmp to feed.fileId
+        tmp to GtfsPublication.key(feed.fileId, feed.validFrom, feed.validUntil)
     }
     // The Bacs de Loire (Département 44, not in the Naolib GTFS): current zip from the portal, also
     // bundled as `assets/seed/bacs_de_loire.zip` - the on-device conversion's fallback.

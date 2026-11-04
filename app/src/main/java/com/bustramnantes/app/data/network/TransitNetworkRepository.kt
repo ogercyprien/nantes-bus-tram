@@ -44,13 +44,13 @@ import javax.inject.Singleton
  *
  * **Offline-first.** Two candidates are loaded at startup: the bundled seed `assets/seed/network.bin`
  * (regenerated with `./gradlew :transit:packSeed`) and the last network installed by [refresh]
- * (`filesDir/network/<fileId>.bin`, named by a pointer file). The one valid **longest** wins, so an app
+ * (`filesDir/network/<key>.bin`, named by a pointer file - key = [GtfsFeed.key]). The one valid **longest** wins, so an app
  * update shipping a newer seed overrides an older download and vice versa - no seed version number to
  * maintain. Everything (map, search, stop sheet, timetables, itineraries) works from first launch with
  * no network.
  *
  * **Refresh** (daily worker + app open): resolve the current publication through the open-data records
- * API; when its file id differs from the installed network's, download the zip (unmetered only, unless
+ * API; when its key (file id + validity window, [GtfsFeed.key]) differs from the installed network's, download the zip (unmetered only, unless
  * the installed network no longer covers today), convert it on the device - streamed, ~7 s / <128 MB
  * heap on a desktop JVM - with the Bacs de Loire appended, carrying the display-position crosswalk over
  * and computing the quay-to-quay walks on the bundled OSM walking graph, write it next to the current
@@ -170,7 +170,7 @@ class TransitNetworkRepository @Inject constructor(
         runCatching {
             val current = index().network
             val feed = feedResolver.latest()
-            if (feed.fileId == current.feedId) return@runCatching false
+            if (feed.key == current.feedId) return@runCatching false
             val today = LocalDate.now(ZoneId.of(current.timezone))
             val currentStillValid = current.covers(today) && current.covers(today.plusDays(EXPIRY_MARGIN_DAYS))
             if (!allowMetered && currentStillValid && connectivity.isMetered.first()) return@runCatching false
@@ -216,7 +216,7 @@ class TransitNetworkRepository @Inject constructor(
                 val converted = try {
                     withContext(Dispatchers.Default) {
                         withCarriedOverData(
-                            GtfsConverter(source, feedId = feed.fileId, crosswalk = current.crosswalk()).convert(),
+                            GtfsConverter(source, feedId = feed.key, crosswalk = current.crosswalk()).convert(),
                             current,
                         )
                     }
@@ -225,10 +225,10 @@ class TransitNetworkRepository @Inject constructor(
                     cleanup()
                 }
                 val t2 = System.nanoTime()
-                val installed = if (feed.fileId != current.feedId) {
-                    val target = File(dir.apply { mkdirs() }, "${feed.fileId}.bin")
+                val installed = if (feed.key != current.feedId) {
+                    val target = File(dir.apply { mkdirs() }, "${feed.key}.bin")
                     target.outputStream().buffered().use { NetworkFormat.write(converted, it) }
-                    File(dir, "current").writeText(feed.fileId)
+                    File(dir, "current").writeText(feed.key)
                     _index.value = indexOf(converted)
                     true
                 } else {
@@ -248,7 +248,7 @@ class TransitNetworkRepository @Inject constructor(
 
     private suspend fun install(feed: GtfsFeed, current: TransitNetwork) = withContext(Dispatchers.IO) {
         dir.mkdirs()
-        val zip = File(context.cacheDir, "gtfs-${feed.fileId}.zip")
+        val zip = File(context.cacheDir, "gtfs-${feed.key}.zip")
         try {
             openData.download(feed.url).byteStream().use { input ->
                 zip.outputStream().buffered().use { input.copyTo(it) }
@@ -256,19 +256,19 @@ class TransitNetworkRepository @Inject constructor(
             val (source, cleanup) = withBacs(zip)
             val converted = try {
                 withContext(Dispatchers.Default) {
-                    withCarriedOverData(GtfsConverter(source, feedId = feed.fileId, crosswalk = current.crosswalk()).convert(), current)
+                    withCarriedOverData(GtfsConverter(source, feedId = feed.key, crosswalk = current.crosswalk()).convert(), current)
                 }
             } finally {
                 cleanup()
             }
-            val target = File(dir, "${feed.fileId}.bin")
-            val tmp = File(dir, "${feed.fileId}.bin.tmp")
+            val target = File(dir, "${feed.key}.bin")
+            val tmp = File(dir, "${feed.key}.bin.tmp")
             tmp.outputStream().buffered().use { NetworkFormat.write(converted, it) }
             // Re-read what was written: never point at a file that doesn't load.
             val reloaded = tmp.inputStream().buffered().use { NetworkFormat.read(it) }
             if (!tmp.renameTo(target)) throw java.io.IOException("cannot install network file")
             val pointerTmp = File(dir, "current.tmp")
-            pointerTmp.writeText(feed.fileId)
+            pointerTmp.writeText(feed.key)
             if (!pointerTmp.renameTo(pointer)) throw java.io.IOException("cannot update network pointer")
             _index.value = indexOf(reloaded)
             dir.listFiles()?.filter { it.name.endsWith(".bin") && it != target }?.forEach { it.delete() }
