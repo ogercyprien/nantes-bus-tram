@@ -79,7 +79,7 @@ app/src/main/java/com/bustramnantes/app/
 ## Building
 
 ```bash
-./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-<abi>-debug.apk (+ universal)
 ./gradlew :transit:test :app:testDebugUnitTest   # JVM unit tests
 ./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin
 ./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate walk_graph.bin
@@ -98,17 +98,35 @@ The release build is unsigned and reproducible: F-Droid rebuilds each tag, check
 byte-identical to the APK attached to the GitHub release and publishes that APK, signed with our key
 (`fdroid/com.bustramnantes.app.yml` is the fdroiddata recipe).
 
-1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, add
-   `fastlane/metadata/android/{en-US,fr-FR}/changelogs/<versionCode>.txt`, commit.
+**One APK per ABI.** The map engine's native code (`libmaplibre.so`, 8-11 MB per ABI, stored
+uncompressed) is most of the APK, so the release build makes one APK per ABI plus a universal one:
+
+| APK | For | versionCode | Size |
+|---|---|---|---|
+| `app-arm64-v8a-release.apk` | nearly every phone (64-bit ARM) | `versionCode * 10 + 3` | ~21 MB |
+| `app-armeabi-v7a-release.apk` | older 32-bit phones | `versionCode * 10 + 1` | ~18 MB |
+| `app-x86_64-release.apk` | emulators, Chromebooks | `versionCode * 10 + 4` | ~22 MB |
+| `app-universal-release.apk` | anyone unsure (GitHub only) | `versionCode * 10` | ~41 MB |
+
+x86 (32-bit) is not shipped. F-Droid has one build block per ABI (`gradleprops: targetAbi=<abi>`,
+which builds that ABI alone - byte-identical to the split build's APK) and installs the highest
+versionCode a device accepts, hence arm64-v8a > armeabi-v7a. The digits are `ABI_DIGITS` in
+`app/build.gradle.kts` and `VercodeOperation` in the recipe: change both together.
+
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, add the changelog as
+   `fastlane/metadata/android/{en-US,fr-FR}/changelogs/<versionCode * 10 + n>.txt` for n = 1, 3
+   and 4 (the same text three times: F-Droid matches a changelog to each APK by its own
+   versionCode; the workflow checks they exist and match), commit.
 2. Tag `v<versionName>` and push the commit and the tag.
-3. `.github/workflows/release.yml` runs the tests, builds and signs the APK
+3. `.github/workflows/release.yml` runs the tests, builds and signs the four APKs
    (`fdroid/sign-release.sh`, key from the repository secrets) and publishes the GitHub release
-   with `app-release.apk` and the changelogs. F-Droid picks the tag up on its own.
+   with them and the changelog. F-Droid picks the tag up on its own.
    Its actions are pinned to commit SHAs with [ratchet](https://github.com/sethvargo/ratchet)
    (`ratchet lint` / `ratchet upgrade .github/workflows/release.yml`; the binary is not committed).
 
 By hand instead: `KEYSTORE=/path/release.jks KEY_ALIAS=release fdroid/sign-release.sh`, then attach
-`app/build/outputs/apk/release/app-release.apk` to the release under that exact name.
+the four `app/build/outputs/apk/release/app-*-release.apk` it lists to the release under those
+exact names (each F-Droid build block's `binary:` points at one).
 
 ## Not built (yet)
 

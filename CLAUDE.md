@@ -12,7 +12,7 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 
 ```bash
 ./gradlew :transit:test :app:testDebugUnitTest   # JVM unit tests (fast, no device)
-./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-<abi>-debug.apk (+ universal)
 ./gradlew :app:compileDebugKotlin                # quick type-check
 ./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin from the current GTFS
 ./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate assets/seed/walk_graph.bin
@@ -332,6 +332,14 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   build-tools 37; CI runners pick the newest build-tools). Recipe for
   fdroiddata: `fdroid/com.bustramnantes.app.yml`; store texts/images in `fastlane/metadata/`.
   Release flow in README "Releasing".
+- **One APK per ABI** (libmaplibre.so is 8-11 MB per ABI, uncompressed): ABI splits make
+  armeabi-v7a / arm64-v8a / x86_64 + universal (GitHub only); x86 is excluded everywhere
+  (`packaging.jniLibs`). versionCode = literal base × 10 + `ABI_DIGITS` (1 / 3 / 4, universal 0),
+  set in `androidComponents.onVariants` = the recipe's `VercodeOperation` (keep in sync, build
+  blocks in the same order). F-Droid builds each ABI alone with `-PtargetAbi=<abi>` (gradleprops);
+  verified byte-identical to the split build's APK. Changelogs: one file per real versionCode
+  (`<base>1/3/4.txt`, same text), checked by the release workflow. Debug builds split too
+  (`app-arm64-v8a-debug.apk` for a phone).
 - Persistent env: `/etc/sandbox-persistent.sh` (never put shell completions there — breaks bash).
 - **Shared map component**: `presentation/common/map/NaolibMapView` = lifecycle-forwarded `MapView` +
   base style (glyphs, beige backdrop, OSM basemap); a screen adds its own sources/layers in

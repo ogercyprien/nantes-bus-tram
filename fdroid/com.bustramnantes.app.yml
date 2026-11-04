@@ -7,9 +7,18 @@
 # branch named `com.bustramnantes.app`, then open a merge request.
 #
 # Reproducible build: F-Droid rebuilds each tag, checks it against the signed
-# APK attached to the GitHub release (`Binaries`) and publishes OUR signed APK.
-# Release flow: bump versionCode/versionName, commit, tag v<versionName>, run
-# fdroid/sign-release.sh, attach app-release.apk to the GitHub release.
+# APK attached to the GitHub release (each build's `binary`) and publishes OUR
+# signed APK.
+# Release flow: bump versionCode/versionName, commit, tag v<versionName>; the
+# release workflow signs and attaches app-<abi>-release.apk for every ABI.
+#
+# One APK per ABI (libmaplibre.so is 8-11 MB per ABI): one build block per ABI,
+# `gradleprops: targetAbi=<abi>` builds that ABI alone. Its versionCode is
+# 10 * versionCode + digit (armeabi-v7a 1, arm64-v8a 3, x86_64 4 - ABI_DIGITS in
+# app/build.gradle.kts). checkupdates copies the last 3 blocks for a new tag and
+# gives them the VercodeOperation codes IN ORDER: keep the blocks in that order.
+# The APK `-PtargetAbi=<abi>` builds is byte-identical to that ABI's APK from
+# the plain build (ABI splits), which is what the release workflow publishes.
 #
 # AllowedAPKSigningKeys = SHA-256 of the release key's certificate (lowercase hex,
 # no colons):  apksigner verify --print-certs app-release.apk | grep SHA-256
@@ -56,19 +65,44 @@ AutoName: Bus et Tram Nantes
 
 RepoType: git
 Repo: https://github.com/ogercyprien/nantes-bus-tram.git
-Binaries: https://github.com/ogercyprien/nantes-bus-tram/releases/download/v%v/app-release.apk
-
 Builds:
-  - versionName: 1.0.0
-    versionCode: 1
-    commit: v1.0.0
+  - versionName: 1.0.1
+    versionCode: 21
+    commit: v1.0.1
     subdir: app
     gradle:
       - yes
+    binary: https://github.com/ogercyprien/nantes-bus-tram/releases/download/v%v/app-armeabi-v7a-release.apk
+    gradleprops:
+      - targetAbi=armeabi-v7a
+
+  - versionName: 1.0.1
+    versionCode: 23
+    commit: v1.0.1
+    subdir: app
+    gradle:
+      - yes
+    binary: https://github.com/ogercyprien/nantes-bus-tram/releases/download/v%v/app-arm64-v8a-release.apk
+    gradleprops:
+      - targetAbi=arm64-v8a
+
+  - versionName: 1.0.1
+    versionCode: 24
+    commit: v1.0.1
+    subdir: app
+    gradle:
+      - yes
+    binary: https://github.com/ogercyprien/nantes-bus-tram/releases/download/v%v/app-x86_64-release.apk
+    gradleprops:
+      - targetAbi=x86_64
 
 AllowedAPKSigningKeys: 744e045d95b339648687b5a1517fcb6a98fc557157980bbaad8b035ee94829b1
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.0
-CurrentVersionCode: 1
+VercodeOperation:
+  - 10*%c+1
+  - 10*%c+3
+  - 10*%c+4
+CurrentVersion: 1.0.1
+CurrentVersionCode: 24

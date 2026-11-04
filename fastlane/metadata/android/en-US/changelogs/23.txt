@@ -1,0 +1,1 @@
+- Smaller download: one APK per processor type (about 21 MB instead of 52 MB on most phones)
