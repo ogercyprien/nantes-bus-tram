@@ -48,8 +48,8 @@
         },
         {
             "file": "app/src/main/assets/seed/line_map.bin",
-            "sha256": "717b5d5272be6c3de2fa5da89b452cffcf356559ec9fa827bab740e78892393d",
-            "size": 190718
+            "sha256": "bfbf15679c9f123184477458a5a07bb1845a5615ce575cde8561dc1c0a4dc63a",
+            "size": 185367
         }
     ]
 }

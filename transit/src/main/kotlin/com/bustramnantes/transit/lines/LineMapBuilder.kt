@@ -133,7 +133,8 @@ class LineMapBuilder(
      * - **Exception to both**: a run of such hops is drawn anyway when it is the only line drawn at
      *   one of its stops. Line 30's runs to Îles de Loire (27 trips vs 250) serve 9 stops nothing else
      *   does and went missing without it. Tram 2's depot runs serve no stop of their own: still hidden.
-     *   Known cost: 88's branch via Gare de Bouaye is hidden because 98 serves its stops.
+     *   88's branch via Gare de Bouaye would be hidden too (98 serves its stops): it is drawn by hand,
+ *   [DRAWN_DETOURS].
      * - **Straight hops**: a hop with no street path (OSM routing failed) is a straight line, drawn
      *   only up to [MAX_STRAIGHT_HOP_M]: longer, it cuts across blocks and looks like a real street.
      *   Boats are exempt: a straight line on the water is fine (and they follow `route=ferry` ways
@@ -189,7 +190,8 @@ class LineMapBuilder(
                         ) {
                             val wayP = sp.copyOfRange(lastI, i + 1); val wayQ = sq.copyOfRange(lastJ, j + 1)
                             val tp = tripsAlong(wayP); val tq = tripsAlong(wayQ)
-                            if (tp < DETOUR_SHARE * tq) {
+                            val keptByHand = wayP.any { net.stopPlaces[it].name in DRAWN_DETOURS[net.routes[route].shortName].orEmpty() }
+                            if (tp < DETOUR_SHARE * tq && !keptByHand) {
                                 val quays = net.patterns[p].quays
                                 // Only hops the detour alone runs (not one the main way shares).
                                 for (h in lastI until i) {
@@ -329,7 +331,11 @@ class LineMapBuilder(
      * sequence and the node of each quay.
      *
      * A sample joins the nearest node within the merge distance, if that node's axis is within 30° of
-     * the sample's (a crossing street doesn't capture it). The distance depends on the node: within
+     * the sample's (a crossing street doesn't capture it); within 15° between trams and other lines.
+     * A tram and a bus that share a street run parallel, while a road crossing a tram line at a
+     * shallow angle did get merged with it for 100 m at 30°: at Babinière the périphérique bundle
+     * (1B, 75, 80) and tram 1 shared a short segment under the bridge and their lanes wove through
+     * each other. The distance depends on the node: within
      * [d] for the previous node or a node of the same line (staying close: else nodes end up a merge
      * radius apart and the line gets coarse, while every few metres would be noise and triangles), up
      * to the two bundles' half widths plus a gap for other lines. A node met recently in this run
@@ -379,7 +385,9 @@ class LineMapBuilder(
                     if (dist >= thr) continue
                     if (j != last && j in recentSet) continue
                     val an = hypot(ax[j], ay[j])
-                    if (an > 0 && (ax[j] * c2 + ay[j] * s2) / an < 0.5) continue // more than 30° apart
+                    // Within 30° (cos 2θ ≥ 0.5); 15° between a tram node and another line (cos 2θ ≥ 0.866).
+                    val minCos = if ((nodeRank[j] == TRAM_RANK) != (rank == TRAM_RANK)) TRAM_MIN_COS else 0.5
+                    if (an > 0 && (ax[j] * c2 + ay[j] * s2) / an < minCos) continue
                     bd = dist; best = j
                 }
             }
@@ -666,7 +674,9 @@ class LineMapBuilder(
     /**
      * Corridors laid down one line at a time can end up side by side closer than their bundles are
      * wide (the trams first, then the buses on the parallel carriageway just out of reach): the nodes
-     * of a segment that lie within [mergeLimit] of another segment's node, same axis (within ~30°), for
+     * of a segment that lie within [mergeLimit] of another segment's node, same axis (within ~30°; ~15°
+     * between a tram corridor and another, so a road crossing the tram line at a shallow angle isn't
+     * folded into it: the périphérique bundle at Babinière wove through tram 1), for
      * at least [MIN_OVERLAP_RUN] consecutive nodes, are merged onto that segment. Narrow segments
      * first, one to one (a node takes at most one other, and a node another merged onto is not merged
      * away itself: else both chains collapse into a few nodes).
@@ -711,7 +721,9 @@ class LineMapBuilder(
                     val dist = hypot(nx[u] - nx[v], ny[u] - ny[v])
                     if (dist >= bd || dist >= mergeLimit(topo.segRoutes[s], topo.segRoutes[o])) continue
                     val (ux, uy) = axis(o, j)
-                    if (abs(tx * ux + ty * uy) < 0.85) continue
+                    // Same axis: within ~30°, ~15° between a tram corridor and another (see [insert]).
+                    val tramPair = (nodeRank[find(u)] == TRAM_RANK) != (nodeRank[find(v)] == TRAM_RANK)
+                    if (abs(tx * ux + ty * uy) < if (tramPair) 0.966 else 0.85) continue
                     if (abs((nx[u] - nx[v]) * tx + (ny[u] - ny[v]) * ty) > d) continue
                     bd = dist; best = u
                 }
@@ -863,7 +875,8 @@ class LineMapBuilder(
      * the ring their lanes swapped and curled: a knot (Place Mellinet). The thresholds come from
      * Mellinet itself, measured at 23 to 52 m from its centre. A terminus loop round a block isn't
      * round and is kept; a small roundabout where one direction cuts the corner to its stop may stay
-     * split (Armoricaine), which is accepted: buses do go round, not through the middle.
+     * split (Armoricaine), which is accepted: buses do go round, not through the middle. A line that
+     * goes once round a roundabout to turn back makes a single closed segment, contracted alike.
      */
     private fun contractRoundabouts(topo: Topology): Int {
         val segsAt = HashMap<Int, MutableList<Int>>()
@@ -876,6 +889,23 @@ class LineMapBuilder(
         val maxLen = 2 * PI * maxR * 1.3
         val used = HashSet<Int>()
         var changes = 0
+        fun contract(nodes: List<Int>, cx: Double, cy: Double) {
+            var c = false
+            for (v in nodes) c = union(nodes[0], v, false) || c
+            if (!c) return
+            val r = find(nodes[0]); nx[r] = cx; ny[r] = cy
+            used += nodes; changes++
+        }
+        // A line going once round a roundabout to turn back (a terminus loop: 96 and 86 at Les Roches)
+        // is one closed segment: a hook off the line's end at any zoom, contracted the same way.
+        for (sg in topo.segments) {
+            if (sg.size < 4 || sg.first() != sg.last() || topo.length(sg) > maxLen) continue
+            val nodes = sg.distinct()
+            if (nodes.any { it in used }) continue
+            val cx = nodes.sumOf { nx[it] } / nodes.size; val cy = nodes.sumOf { ny[it] } / nodes.size
+            val r = nodes.map { hypot(nx[it] - cx, ny[it] - cy) }
+            if (r.max() <= maxR && r.min() >= 0.4 * r.max()) contract(nodes, cx, cy)
+        }
         for (start in segsAt.keys.sorted()) {
             if (start in used) continue
             var found: Triple<List<Int>, Double, Double>? = null
@@ -886,7 +916,19 @@ class LineMapBuilder(
                 if (nodes.any { it in used }) return null
                 val cx = nodes.sumOf { nx[it] } / nodes.size; val cy = nodes.sumOf { ny[it] } / nodes.size
                 val r = nodes.map { hypot(nx[it] - cx, ny[it] - cy) }
-                return if (r.max() > maxR || r.min() < 0.4 * r.max()) null else Triple(nodes, cx, cy)
+                if (r.max() <= maxR && r.min() >= 0.4 * r.max()) return Triple(nodes, cx, cy)
+                // A line's two directions on opposite ways round a roundabout (96 at Géraudière: one
+                // direction cuts across, the other goes three quarters round): a chord and a loop, whose
+                // ends are its junctions, outside the ring. Round if the loop's own points are.
+                if (cycle.size != 2) return null
+                val loop = cycle.map { topo.segments[it] }.maxBy { topo.length(it) }
+                val ring = loop.copyOfRange(1, loop.size - 1).distinct()
+                if (ring.size < 3) return null
+                val rx = ring.sumOf { nx[it] } / ring.size; val ry = ring.sumOf { ny[it] } / ring.size
+                val rr = ring.map { hypot(nx[it] - rx, ny[it] - ry) }
+                if (rr.max() > maxR || rr.min() < 0.4 * rr.max()) return null
+                if (nodes.any { hypot(nx[it] - rx, ny[it] - ry) > 2 * maxR }) return null
+                return Triple(nodes, rx, ry)
             }
             fun dfs(v: Int, path: List<Int>, len: Double, seen: Set<Int>) {
                 if (found != null) return
@@ -904,11 +946,7 @@ class LineMapBuilder(
             }
             dfs(start, emptyList(), 0.0, setOf(start))
             val (nodes, cx, cy) = found ?: continue
-            var c = false
-            for (v in nodes) c = union(nodes[0], v, false) || c
-            if (!c) continue
-            val r = find(nodes[0]); nx[r] = cx; ny[r] = cy
-            used += nodes; changes++
+            contract(nodes, cx, cy)
         }
         return changes
     }
@@ -1153,6 +1191,20 @@ class LineMapBuilder(
 
         /** ...but never farther than this (ground metres). */
         const val HUB_MAX_RADIUS_M = 120.0
+
+        /**
+         * Manual adjustment: detours drawn anyway, by line short name -> stops of the detour. 88's
+         * runs via Gare de Bouaye (37 trips of 113 one way, 39 of 95 the other) are on the official
+         * map, while TE1 via Tabarly (27 of 71) and 69 via Lycée Rieffel (47 of 147) are not, and no
+         * trip share or "own stop" rule tells them apart (98 serves Gare de Bouaye). See [HopRules].
+         */
+        val DRAWN_DETOURS: Map<String, Set<String>> = mapOf("88" to setOf("Gare de Bouaye"))
+
+        /** [LineStyle.rank] of a tram. */
+        private const val TRAM_RANK = 2
+
+        /** cos 2θ for 15°: the widest angle at which a tram node and another line's sample merge ([insert]). */
+        private const val TRAM_MIN_COS = 0.866
 
         /** Stations where the trams keep the west side of every bundle (manual adjustment, see [pins]). */
         val TRAMS_WEST_HUBS = setOf("Pirmil")

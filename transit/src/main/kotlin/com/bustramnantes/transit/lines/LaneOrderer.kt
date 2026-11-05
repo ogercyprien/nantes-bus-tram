@@ -17,7 +17,7 @@ import kotlin.math.min
  * Optimal ordering is NP-hard; the search here is: [barycentre] sweeps (as in layered-graph drawing)
  * for a good start, then [optimise], a local search (every permutation of segments up to 6 lines,
  * single-lane moves for wider ones) until nothing improves. On the Nantes network this leaves about
- * 250 crossings at z12 and 410 at z15 (`LineMapRegressionTest` holds those budgets).
+ * 250 crossings at z12 and 340 at z15 (`LineMapRegressionTest` holds those budgets).
  *
  * [pinned]: segments whose order is constrained by hand, applied to every order tried (the Pirmil
  * adjustment, [LineMapBuilder.TRAMS_WEST_HUBS]). A pin function only reorders, so the search still

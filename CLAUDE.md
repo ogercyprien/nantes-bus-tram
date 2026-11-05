@@ -251,8 +251,9 @@ changing a rule, and keep it in step with the code.**
   merge twins/bubbles/overlaps, cut knots and contract roundabouts; `LaneOrderer` orders lanes to
   minimise crossings; `LaneGeometry` offsets them for a draw zoom (junction curves, station dashes).
   Hops drawn: no minor variants (< 15 % of the line's busiest hop) or detours (< 50 % of the other
-  way) unless they serve a stop of their own; no straight hop > 400 m (boats excepted). One manual
-  adjustment: Pirmil's trams keep the west side (`TRAMS_WEST_HUBS`).
+  way) unless they serve a stop of their own; no straight hop > 400 m (boats excepted). Trams merge
+  with other lines only within 15°. Two manual adjustments: Pirmil's trams keep the west side
+  (`TRAMS_WEST_HUBS`), 88 is drawn via Gare de Bouaye (`DRAWN_DETOURS`).
 - **One layout per zoom, z12-z15** (merge distance = bundle widths as drawn at that zoom); z16+ use
   z15. `LineMapSet` / `LineMapFormat` (`NAOLLMAP` v1, ~190 KB): `assets/seed/line_map.bin` from
   `buildSeed`; `LineMapRepository` rebuilds it on the phone (~11 s desktop JVM for four layouts) when
@@ -265,7 +266,7 @@ changing a rule, and keep it in step with the code.**
   stripe, 12 % each, so a crossing line hides the stripe), trams, labels (`line-center`), station
   dashes (z14+), stop dots. Markers are ours (on the lines, near the quays); stops served only by
   undrawn lines (school runs, night lines) keep a dot at their GTFS position.
-- **Checks**: `LineMapRegressionTest` (crossing budgets 265/300/355/435 at z12-z15, Pirmil, Mellinet,
+- **Checks**: `LineMapRegressionTest` (crossing budgets 267/288/347/358 at z12-z15, Pirmil, Mellinet,
   line 30, Mont Blanc, Toutes Joies, Place du Cirque, stations, Haluchère); visual comparison with
   the official tiles (dev only, images never committed): `LINEMAP_OUT=/abs/dir ./gradlew
   :transit:test --tests '*LineMapComparisonTest*' --rerun` (`LINEMAP_RANDOM=100` = the reviewed

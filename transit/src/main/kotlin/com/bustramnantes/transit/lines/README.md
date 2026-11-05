@@ -76,7 +76,8 @@ them on the phone (`LineMapRepository`) and keeps showing the previous ones mean
 - **Exception: a run that is the only line at one of its stops is drawn anyway.** Line 30's runs to
   Îles de Loire (27 trips vs 250) serve 9 stops nothing else does; without this, line 30 vanished
   from Vertou, Clos Toreau and Saint-Sébastien. Tram 2's depot runs serve no stop of their own and
-  stay hidden. Known cost: 88's branch via Gare de Bouaye stays hidden because 98 serves its stops.
+  stay hidden. 88's branch via Gare de Bouaye would stay hidden too (98 serves its stops): it is drawn
+  by hand (below).
 - **Straight hops over 400 m (`MAX_STRAIGHT_HOP_M`) aren't drawn, boats excepted.** A hop whose OSM
   routing failed is a straight line; long, it cuts through blocks and reads as a street. Left today:
   1B Babinière-Batignolles, TE1 Marguyonnes-Île Macé, the C8 Marcel Paul loop. Others were fixed at
@@ -93,7 +94,11 @@ them on the phone (`LineMapRepository`) and keeps showing the previous ones mean
   the corridors the others snap onto.
 - **A sample joins the nearest node within the merge distance, same axis (within 30°).** The axis is
   a doubled-angle vector, so both directions of a street agree, and a crossing street doesn't
-  capture the line.
+  capture the line. **Between a tram and another line, 15°** (`TRAM_MIN_COS`), here and in the
+  overlap merges: a tram and a bus sharing a street run parallel, while at Babinière the
+  périphérique bundle (1B, 75, 80), crossing tram 1 at a shallow angle under the bridge, shared a
+  100 m segment with it and their lanes wove through each other. The change also removed about 40
+  crossings at z15.
 - **Merge distance**: (this bundle's width + the other's) / 2 + a gap, in dp at the layout zoom,
   between `MIN_MERGE_DP` (8: both directions of a street, double tram tracks) and `MAX_MERGE_DP` (60:
   beyond, two corridors are two streets). For the previous node or a node of the same line, only the
@@ -168,6 +173,11 @@ Each round rebuilds the `Topology` and runs, in order:
   checked (stopping at the first one, a triangle at a junction, missed Mellinet). Terminus loops
   round a block aren't round and are kept; Armoricaine stays split (one direction cuts the corner to
   its stop): accepted, buses do go round, not through.
+  Two more shapes count as a roundabout: a line going once round one to turn back (a single closed
+  segment), and a line whose two directions take opposite ways round it, one cutting across and the
+  other going three quarters round (a chord and a loop whose junctions lie outside the ring: round if
+  the loop's own points are, ends within twice the radius). That was the hook of 96 at the
+  Géraudière roundabout (Les Roches), and 86's next to it.
 
 ### Segments
 
@@ -181,9 +191,15 @@ Each round rebuilds the `Topology` and runs, in order:
   through the junction is a chord; two lines cross where their chords do. Two lines crossing between
   the same two segments weigh 2 (they braid, and that is always avoidable), any other crossing 1.
 - **Barycentre sweeps, then local search** (every permutation up to 6 lines, single moves for wider
-  bundles). Result on the current network: 251 crossings at z12, 283 at z13, 338 at z14, 414 at z15
-  (z14 was 895 before the station, bubble and detour rules). `LineMapRegressionTest` keeps a budget
+  bundles). Result on the current network: 254 crossings at z12, 274 at z13, 330 at z14, 341 at z15
+  (z14 was 895 before the station, bubble and detour rules; z15 414 before the tram angle rule). `LineMapRegressionTest` keeps a budget
   about 5 % above these.
+
+### Manual adjustment: 88 via Gare de Bouaye (`DRAWN_DETOURS`)
+
+88's runs via Gare de Bouaye (37 trips of 113 one way, 39 of 95 the other) are on the official map,
+while TE1 via Tabarly (27 of 71) and 69 via Lycée Rieffel (47 of 147) are not, and no trip share or
+"own stop" rule tells them apart (98 serves Gare de Bouaye). So that detour is drawn by name.
 
 ### Manual adjustment: Pirmil (`TRAMS_WEST_HUBS`)
 
@@ -257,7 +273,6 @@ bridge); Commerce is the only other candidate if it ever needs the same.
 
 ## Known weaknesses
 
-- The périphérique bundle weaves round line 1 at Babinière; line 96 makes a hook at Les Roches.
 - Input problems in the ride paths: 3B squiggle at Pont Général Audibert, C3 hairpin at Atlantis,
   line 66 without a path to Babinière.
 - Terminus loops are not drawn (Sartre, Cartier, Château de Rezé...).

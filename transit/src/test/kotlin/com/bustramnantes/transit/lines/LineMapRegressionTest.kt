@@ -21,9 +21,9 @@ class LineMapRegressionTest {
 
         /**
          * Crossings left after lane ordering, per layout zoom: about 5 % above what the builder
-         * reached on 2026-11-05 (251, 283, 338, 414). A rule change that tangles the map shows here.
+         * reached on 2026-11-05, after the step 7 fixes (254, 274, 330, 341). A rule change that tangles the map shows here.
          */
-        private val CROSSING_BUDGET = mapOf(12 to 265, 13 to 300, 14 to 355, 15 to 435)
+        private val CROSSING_BUDGET = mapOf(12 to 267, 13 to 288, 14 to 347, 15 to 358)
     }
 
     private fun stop(name: String) = net.stopPlaces.first { it.name == name }
