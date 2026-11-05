@@ -16,7 +16,8 @@ import kotlin.math.sqrt
  *    any way a Naolib bus route relation lists; one-way unless `oneway:bus|psv=no` ([busOneway]);
  *    roads with `construction=minor` (open during works) and streets with tram tracks in them count;
  *  - **tram graph**: `railway=tram|light_rail`, both ways;
- *  - ferries (Navibus, bacs): no entry - drawn straight, which is what they do.
+ *  - **ferry graph**: `route=ferry` ways, both ways (the Navibus crossings: N1 Gare Maritime -
+ *    Trentemoult drawn straight cut across Sainte-Anne); a crossing OSM doesn't map stays straight.
  *
  * Each hop is routed on its mode's [VehicleGraph], guided by the OSM route relations (`type=route`,
  * network Naolib/TAN, `ref` = the line's short name) of every line that runs that hop: their ways
@@ -116,7 +117,7 @@ object RideShapeBuilder {
         nodes.seal()
 
         // 3. Ways, split where they leave the box.
-        val busWays = ArrayList<VehicleGraph.Way>(); val tramWays = ArrayList<VehicleGraph.Way>()
+        val busWays = ArrayList<VehicleGraph.Way>(); val tramWays = ArrayList<VehicleGraph.Way>(); val ferryWays = ArrayList<VehicleGraph.Way>()
         reader.read(object : OsmPbfReader.Visitor {
             override fun wantWays() = true
             override fun way(id: Long, tags: Map<String, String>, refs: LongArray) {
@@ -125,7 +126,8 @@ object RideShapeBuilder {
                 // A street with tram tracks in it (`highway=*` + `railway=tram`) is in both graphs: buses
                 // drive it too (Rue des Renards, 96 between Boissière and Santos Dumont).
                 val bus = isBusWay(tags) || (id in allRelationWays && tags["highway"] != null)
-                if (!tram && !bus) return
+                val ferry = tags["route"] == "ferry"
+                if (!tram && !bus && !ferry) return
                 for (run in insideRuns(refs, nodes)) {
                     fun way(ow: Int) = VehicleGraph.Way(
                         id, LongArray(run.size) { refs[run[it]] },
@@ -135,12 +137,14 @@ object RideShapeBuilder {
                     )
                     if (tram) tramWays += way(0)
                     if (bus) busWays += way(busOneway(tags))
+                    if (ferry) ferryWays += way(0)
                 }
             }
         })
         val bus = VehicleGraph(busWays)
         val tram = VehicleGraph(tramWays)
-        log("bus graph: ${bus.nodeCount} nodes, ${bus.arcCount} arcs; tram graph: ${tram.nodeCount} nodes, ${tram.arcCount} arcs")
+        val ferry = VehicleGraph(ferryWays)
+        log("bus graph: ${bus.nodeCount} nodes, ${bus.arcCount} arcs; tram graph: ${tram.nodeCount} nodes, ${tram.arcCount} arcs; ferry graph: ${ferry.nodeCount} nodes, ${ferry.arcCount} arcs")
 
         // 4. Hops: every consecutive quay pair, with its mode and the lines that run it.
         class Hop(val fromQuay: Int, val toQuay: Int, val mode: RouteMode, val lines: MutableSet<String>)
@@ -160,8 +164,8 @@ object RideShapeBuilder {
             val graph = when (hop.mode) {
                 RouteMode.BUS -> bus
                 RouteMode.TRAM -> tram
-                RouteMode.FERRY -> null
-            } ?: continue
+                RouteMode.FERRY -> ferry
+            }
             val preferred = preferredCache.getOrPut(hop.mode to hop.lines) {
                 graph.waysWithIds(hop.lines.flatMapTo(HashSet()) { relationWays[it].orEmpty() })
             }

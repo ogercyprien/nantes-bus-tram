@@ -112,7 +112,7 @@ private fun runPipeline(osm: File, gtfs: File, bacs: File, stops: File, outDir: 
     val (shapes, rs) = RideShapeBuilder.build(reread, osm)
     networkFile.outputStream().buffered().use { NetworkFormat.write(reread.withRideShapes(shapes), it) }
     networkFile.inputStream().buffered().use(NetworkFormat::read) // never ship a file that doesn't load
-    println("ride paths: ${rs.hops} hops, ${rs.routed} routed, ${rs.straight} straight (+ ferries)")
+    println("ride paths: ${rs.hops} hops, ${rs.routed} routed, ${rs.straight} straight")
 }
 
 private fun buildSeed(layout: SeedLayout, opts: Map<String, String>) {

@@ -95,7 +95,7 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   `:transit:buildSeed` (`tools/RideShapeBuilder` + `VehicleGraph`): bus graph / tram graph from the
   Geofabrik extract, routed hop by hop with the lines' OSM route relations as a guide (relation ways
   1×, others 1.6×; a gap or a line without relation is bridged by routing; straight when a stop is
-  > 80 m off the graph or the path is > 2.5 × crow-fly + 300 m; ferries straight). Keyed by **quay
+  > 80 m off the graph or the path is > 2.5 × crow-fly + 300 m; Navibus and bacs follow OSM `route=ferry` ways). Keyed by **quay
   numbers** (stable across publications) and only the interior points are stored (the ends are the
   current quays). The on-device conversion **carries them over** (`RideShapes.carriedOver`): a new
   GTFS keeps every hop it shares with the previous network (and the seed's, for a download made by an
