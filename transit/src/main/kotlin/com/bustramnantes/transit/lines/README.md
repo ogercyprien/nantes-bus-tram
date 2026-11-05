@@ -42,11 +42,11 @@ computed per zoom because the merge distance is the width of the bundles *as dra
 | Which hops are drawn | `LineMapBuilder.HopRules` | minor variants, detours, failed paths |
 | Snapping | `LineMapBuilder.snap` / `insert` | trams first, then Busway/Chronobus, then buses |
 | Stations | `LineMapBuilder.placeHubs` | one junction per station |
-| Clean-up rounds | `LineMapBuilder.cleanUp` | until nothing changes (16 rounds at most) |
+| Clean-up rounds | `LineMapBuilder.cleanUp` | until nothing changes (`MAX_ROUNDS` = 16 at most: a merge on the map's last stray pair can keep a round busy forever) |
 | Segments, markers | `LineMapBuilder.finish` / `markers` | smoothing, simplification |
 | Lane order | `LaneOrderer` | barycentre sweeps, then local search |
 | Lanes for a draw zoom | `LaneGeometry` | offsets, junction curves, station dashes |
-| Storage | `LineMapSet`, `LineMapFormat` | `assets/seed/line_map.bin`, rebuilt on the phone |
+| Storage | `LineMapSet`, `LineMapFormat` (`VERSION` 1) | `assets/seed/line_map.bin`, rebuilt on the phone; a file of another version is rebuilt |
 
 Building the four layouts takes about 11 s on a desktop JVM (2-3 s per zoom). `./gradlew
 :transit:buildSeed` writes them into `assets/seed/line_map.bin`; after a GTFS refresh the app rebuilds
@@ -83,7 +83,7 @@ them on the phone (`LineMapRepository`) and keeps showing the previous ones mean
   the source (`RideShapeBuilder`: roads under `construction=minor`, relation members with role
   `route`, tram streets in the bus graph). Boats are fine straight on water, and follow OSM's
   `route=ferry` ways anyway.
-- **Hidden lines (`LineStyle.Kind.HIDDEN`)**: school runs (< 20 trips in the feed: the 1xx lines,
+- **Hidden lines (`LineStyle.Kind.HIDDEN`)**: school runs (< `MIN_TRIPS` = 20 trips in the feed: the 1xx lines,
   LCE, CNO) and the night lines NC/NN/NO/NS, as on the official map. NA (airport shuttle) is drawn.
   Their stops keep a marker in the app (at the GTFS position) so they can still be tapped.
 
@@ -98,7 +98,11 @@ them on the phone (`LineMapRepository`) and keeps showing the previous ones mean
   between `MIN_MERGE_DP` (8: both directions of a street, double tram tracks) and `MAX_MERGE_DP` (60:
   beyond, two corridors are two streets). For the previous node or a node of the same line, only the
   floor: else nodes end up a merge radius apart and the line gets coarse.
-- **Node ranks (tram 2 > Busway/Chronobus 1 > bus 0; station 9)**: only samples of a node's own rank
+- **The same lines merge farther (`SAME_LINES_MERGE_DP` = 16 dp)**: two corridors where one's lines
+  are all in the other's (the two directions of a line, or two variants) merge up to 16 dp apart
+  whatever their widths (about 210 m at z12, 50 m at z14): one line far out, two on a close-up,
+  instead of two thin parallel strokes of the same colour.
+- **Node ranks (tram 2 > Busway/Chronobus 1 > bus 0; station `HUB_RANK` 9)**: only samples of a node's own rank
   move it, and a merge keeps the higher rank's position. A bus snapping onto the tram corridor bends
   to the trams instead of dragging them: Aimé Delrue at z13 was a sharp corner in trams 2 and 3.
 - **A node seen recently in the same run can't be rejoined** (except the previous one): a line
@@ -149,7 +153,8 @@ Each round rebuilds the `Topology` and runs, in order:
     instead made tram 2 absorb buses.
 - **Overlaps** (`mergeOverlaps`): corridors side by side closer than their bundles are wide (the
   trams laid first, the buses on the parallel carriageway just out of reach) merge, narrow onto wide,
-  one node to one node. **Sideways only** and **never into a station**: at z13 Place du Cirque was
+  one node to one node, where at least two consecutive nodes run alongside (`MIN_OVERLAP_RUN`: one
+  node near another corridor is a crossing or a touch, not a parallel corridor). **Sideways only** and **never into a station**: at z13 Place du Cirque was
   merged onto a tram node 120 m down Cours des 50 Otages, then onto St-Nicolas 250 m off, and the
   trams at Commerce tilted from about 30° to 45°.
 - **Tiny loops are cut**: a closed segment shorter than π × its bundle width can't be drawn as a
@@ -213,7 +218,8 @@ bridge); Commerce is the only other candidate if it ever needs the same.
 - **Offsets computed per draw zoom**, not with MapLibre's `line-offset`, which is constant per
   feature and can't join a lane to the next segment's lane at another offset.
 - **Lanes stop short of junctions** (half the widest bundle there + 2 dp) and a cubic curve joins each
-  line to its next lane, so lines swap sides smoothly. A line ending at its terminus runs to the node.
+  line to its next lane, so lines swap sides smoothly (sampled at `CURVE_POINTS` = 10 points: smooth
+  at every zoom the layouts are drawn at, and the curves stay a small share of the features). A line ending at its terminus runs to the node.
 - **Offset polylines**: miter joins capped at 2×, and the small self-loops an offset makes inside a
   tight turn are cut.
 - **Regenerated every half zoom, scaled in between**: the app recomputes the lanes when the zoom
@@ -223,8 +229,9 @@ bridge); Commerce is the only other candidate if it ever needs the same.
 - **Widths by kind and zoom** (`LineStyle`): tram > Busway/Chronobus > bus, matched to the official
   tiles; the gap between lanes grows with the zoom.
 - **White casing** under every line (its width + the gap), drawn first for all lines.
-- **Chronobus look**: a `#6B2359` edge (sampled from the official tiles, the same for every line),
-  the line colour, and a white stripe down the middle, 12 % of the width each.
+- **Chronobus look**: a `#6B2359` edge (`CHRONOBUS_EDGE`, sampled from the official tiles, the same
+  for every line), the line colour, and a white stripe down the middle, 12 % of the width each
+  (`CHRONOBUS_EDGE_SHARE`, `CHRONOBUS_STRIPE_SHARE`, measured on the same tiles).
 - **Drawn line by line within a rank**, edge, body and stripe of one line before the next, and ranks
   bus < Busway/Chronobus < tram: a line crossing over a Chronobus hides its stripe too (Bretagne,
   z16), and trams stay on top.

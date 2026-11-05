@@ -15,7 +15,7 @@ Sources covered:
 | **Open data — Okina real-time** | `api.okina.fr` | Okina gateway serving Nantes Métropole's open real-time feeds (SIRI, GTFS-RT) |
 | **transport.data.gouv.fr** | `transport.data.gouv.fr` | National access point: catalogue, validators, a GTFS-RT proxy |
 | **Géoplateforme** | `data.geopf.fr` | IGN/BAN geocoding (open) |
-| **OpenStreetMap** | `tile.openstreetmap.org` | Basemap tiles |
+| **OpenStreetMap** | `tile.openstreetmap.org`, Geofabrik extracts | Basemap tiles; the extract feeds the walking graph and the ride paths the line map is drawn from |
 
 `CLAUDE.md` § "Data sources" holds additional implementation detail for the sources the app
 uses. When the two disagree, re-verify live and fix both. Measurement scripts were
@@ -40,8 +40,8 @@ throwaway; the methodology is described inline so it can be redone.
 | Itinerary planning | `api/itinerary/search` | — | none (local RAPTOR on GTFS, **used**) | Runs on the device, §8 |
 | Itinerary place autocomplete | `api/autocomplete/itinerary` | — | local stops + Géoplateforme (**used**) | |
 | Address geocoding | — | — | Géoplateforme (**used**) | |
-| Map line drawing | raster tiles v5 (**used**, seeded) | — | GTFS `shapes.txt` | Raster has lane offsetting baked in; vectors can't reproduce it |
-| Map line labels / hit-testing | vector tiles `network` layer (**used**) | — | GTFS shapes | |
+| Map line drawing | raster tiles v5 (reference only) | - | GTFS patterns + OSM ride paths (**used**, our own line map) | Since 2026-11 the app draws its own lanes (`transit/.../lines/README.md`); GTFS `shapes.txt` is useless (one point per stop) |
+| Map line labels / hit-testing | vector tiles `network` layer (unused) | - | our line map (**used**) | Labels placed on our lanes, fonts bundled |
 
 **One prediction engine.** Measured 2026-10-05: the official app board and the MaaS timetable carry
 identical predictions when fetched together; MaaS is a delayed copy that lists only tracked
@@ -77,8 +77,9 @@ the web front-end's JS bundle) and verified live. It can change without notice.
 - **Stale names:** 5 stops still carried pre-rename names on 2026-09-28 (59582 Chanzy→Bretéché,
   61766 Gare de Bouaye→Bouaye, 65357 Lieu Unique→Duchesse Anne-Chateau, 60877 Route de la
   Chapelle→Picabia, 45493 St-Paul - Salengro→St Paul Salengro). MaaS carries the current names.
-- A frozen copy (`transit/seed/logical_stops.geojson`) feeds the crosswalk for display positions:
-  the raster line tiles are aligned to these coordinates.
+- Until 2026-11 a frozen copy (`transit/seed/logical_stops.geojson`) fed a crosswalk for display
+  positions, because the raster line tiles were aligned to these coordinates. Removed with the
+  tiles: stops are at their GTFS positions, markers on our own lines.
 
 ### 2.3 Real-time board — `GET /api/stop/logical/{logicalId}`
 
@@ -141,18 +142,21 @@ Ordered stops of a line+direction (`line_sequences`).
 
 ### 2.8 Map tiles
 
+Not used by the app since 2026-11 (it draws its own line map); kept as a reference, and the line
+map's comparison tool (`LineMapComparisonTest`, dev only) still fetches the raster to compare.
+
 - **Raster line overlay** `https://plan-app.naolib.fr/data/raster/v5/{z}/{x}/{y}.png`:
   - day style; night is `v1nuit`
   - 512-px tiles, z6–17
   - Parallel lanes for co-located lines are baked in by the upstream cartography pipeline.
-  - Seeded offline as `assets/seed/naolib_lines_v5_z6-14.mbtiles` (TMS rows).
+  - Was seeded offline as `assets/seed/naolib_lines_v5_z6-14.mbtiles` (TMS rows) until 2026-11.
 - **Vector tiles** via TileJSON `/api/external/tilejson/naolib_network.json` → `tile.cartographie.pro`:
   - source layer **`network`**
   - `route_color`/`route_text_color` include `#`
   - `route_type` is a string
   - co-located routes are byte-identical 2-vertex segments (hence no vector lane offsetting)
   - glyphs at `tile.cartographie.pro/fonts/...`
-  - Used for line-number labels and tap hit-testing only.
+  - Was used for line-number labels and tap hit-testing only.
 
 ---
 
@@ -505,6 +509,8 @@ listing uses its own private key; not for reuse.
 
 - **Géoplateforme geocoding** `https://data.geopf.fr/geocodage/search/` (BAN addresses; no auth).
 - **OpenStreetMap tiles** `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (basemap; not seeded offline).
+- **Noto Sans Bold** glyphs (SIL OFL 1.1), from openmaptiles/fonts v2.0, bundled in `assets/glyphs/`
+  for every map label (no font server).
 
 ## 8. Itinerary planning without the official app backend
 
@@ -550,7 +556,7 @@ Data it needs:
 - **De-duplicated network:** 42,598 unique (pattern, times) trips, 316 patterns (route, direction,
   headsign, quays), 7,439 running-time profiles, 202 service-day bitsets; packed with shapes and the
   vj → trip join table: **≈300 KB**. Streaming conversion on a desktop JVM: **~7 s, peak < 128 MB**.
-- **Crosswalk (seed geojson ↔ GTFS, for display positions):** StopPlace-centred matching (same loose
+- **Crosswalk (seed geojson ↔ GTFS, for display positions; removed 2026-11 with the official tiles):** StopPlace-centred matching (same loose
   name ≤ 600 m, else an official stop ≤ 150 m whose lines ⊇ the StopPlace's) matches 1,100/1,101 StopPlaces (median 18 m,
   p95 85 m). The "renamed" geojson stops are really **splits**: geojson "Chanzy" 59582 (C1;C6;NN) =
   GTFS "Chanzy" 1040 (C1, NN) + "Bretéché" 1078 (C6); "Route de la Chapelle" 60877 (59;C2;109) = GTFS

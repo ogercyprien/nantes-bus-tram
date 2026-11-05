@@ -35,7 +35,7 @@ works offline except real time and address search.
 | Bacs de Loire (B1, B2) | Département de Loire-Atlantique GTFS (Licence Ouverte), appended to the network |
 | Walking paths in itineraries | OpenStreetMap pedestrian graph of Nantes Métropole (Geofabrik extract, ODbL), bundled as `assets/seed/walk_graph.bin` |
 | Ride paths on itinerary maps | OpenStreetMap bus/tram ways and Naolib route relations (same extract, ODbL), one street path per stop-to-stop hop, stored in `network.bin` |
-| Map line drawing / labels | Official Naolib map tiles (`plan-app.naolib.fr`, seeded offline) |
+| Map line drawing / labels | Our own line map, drawn from the GTFS and the OSM ride paths (lines side by side, LOOM-style), bundled as `assets/seed/line_map.bin` and rebuilt on the device after a GTFS refresh; labels in Noto Sans (SIL OFL), bundled |
 | Addresses | Géoplateforme (geopf.fr) |
 | Basemap | OpenStreetMap |
 
@@ -44,36 +44,38 @@ works offline except real time and address search.
 ## Module layout
 
 ```
-transit/                — pure-JVM core: GTFS converter, packed network format, RAPTOR router,
-                          OSM walking graph, OSM ride paths, SIRI/GTFS-RT parsing, departure-board
-                          composition (+ `buildSeed` / `verifySeed` tasks)
+transit/                - pure-JVM core: GTFS converter, packed network format, RAPTOR router,
+                          OSM walking graph, OSM ride paths, line map (`lines/`, see its README),
+                          SIRI/GTFS-RT parsing, departure-board composition (+ `buildSeed` /
+                          `verifySeed` tasks)
 app/src/main/java/com/bustramnantes/app/
 ├── data/
-│   ├── local/          — Room (favorites, recent searches) + AppPreferencesDataStore + seeded map tiles
-│   ├── network/        — TransitNetworkRepository (seed / downloaded GTFS network), NetworkIndex
-│   ├── realtime/       — RealtimeGateway (shared SIRI budget, boards per stop), disruptions
-│   ├── remote/         — Okina client, open-data records API, Géoplateforme geocoding
-│   └── repository/     — Repository implementations binding domain interfaces to data sources
+│   ├── local/          - Room (favorites, recent searches) + AppPreferencesDataStore
+│   ├── network/        - TransitNetworkRepository (seed / downloaded GTFS network), NetworkIndex,
+│   │                     LineMapRepository (the Plan tab's line map)
+│   ├── realtime/       - RealtimeGateway (shared SIRI budget, boards per stop), disruptions
+│   ├── remote/         - Okina client, open-data records API, Géoplateforme geocoding
+│   └── repository/     - Repository implementations binding domain interfaces to data sources
 ├── domain/
-│   ├── model/          — Stop, Line, Departure, Journey, Favorite, Disruption, …
-│   ├── repository/     — Repository interfaces (the fixed data-layer contract)
-│   ├── usecase/        — One class per action (favorites, search, itinerary, stop timetable)
-│   └── util/           — Pure rules: phantom departures, disruption relevance, text matching, …
+│   ├── model/          - Stop, Line, Departure, Journey, Favorite, Disruption, …
+│   ├── repository/     - Repository interfaces (the fixed data-layer contract)
+│   ├── usecase/        - One class per action (favorites, search, itinerary, stop timetable)
+│   └── util/           - Pure rules: phantom departures, disruption relevance, text matching, …
 ├── presentation/
-│   ├── home/           — Home dashboard (favorites + live departures)
-│   ├── search/         — Unified stop / address / itinerary search
-│   ├── stop/           — Stop Detail bottom sheet
-│   ├── timetable/      — Theoretical timetables
-│   ├── map/            — Full-screen Naolib network map (MapLibre)
-│   ├── nearby/         — Stops around the user
-│   ├── itinerary/      — Itinerary results and step-by-step detail, both on a map; sharing
-│   ├── disruptions/    — Network-wide disruption list
-│   ├── settings/       — Theme / data / favorites / about
-│   └── common/         — Theme, shared components, shared map view, navigation graph (`Screen`, `AppNavGraph`)
-├── widget/             — Glance home-screen widget + its configuration Activity
-├── worker/             — WorkManager background tasks (daily network refresh, widget refresh)
-├── BusEtTramApplication.kt — Hilt root; schedules background work, MapLibre setup
-└── MainActivity.kt         — Single-activity host; resolves launch tab, hosts theme/nav/bottom bar
+│   ├── home/           - Home dashboard (favorites + live departures)
+│   ├── search/         - Unified stop / address / itinerary search
+│   ├── stop/           - Stop Detail bottom sheet
+│   ├── timetable/      - Theoretical timetables
+│   ├── map/            - Full-screen Naolib network map (MapLibre)
+│   ├── nearby/         - Stops around the user
+│   ├── itinerary/      - Itinerary results and step-by-step detail, both on a map; sharing
+│   ├── disruptions/    - Network-wide disruption list
+│   ├── settings/       - Theme / data / favorites / about
+│   └── common/         - Theme, shared components, shared map view, navigation graph (`Screen`, `AppNavGraph`)
+├── widget/             - Glance home-screen widget + its configuration Activity
+├── worker/             - WorkManager background tasks (daily network refresh, widget refresh)
+├── BusEtTramApplication.kt - Hilt root; schedules background work, MapLibre setup
+└── MainActivity.kt         - Single-activity host; resolves launch tab, hosts theme/nav/bottom bar
 ```
 
 ## Building
@@ -86,7 +88,7 @@ app/src/main/java/com/bustramnantes/app/
 ```
 
 The bundled seed (`app/src/main/assets/seed/`: timetable `network.bin`, OSM walking graph
-`walk_graph.bin`, bacs GTFS `bacs_de_loire.zip`) is compiled from open data by `buildSeed`, from
+`walk_graph.bin`, bacs GTFS `bacs_de_loire.zip`, line map `line_map.bin`) is compiled from open data by `buildSeed`, from
 scratch and deterministically. `transit/seed/seed-manifest.json` records every input (sha256, size,
 source, licence) and every output; the inputs themselves are archived on the GitHub release it names
 (`seed-<hash of the inputs>`), since the GTFS portal keeps only the current publication and

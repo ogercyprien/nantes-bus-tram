@@ -298,8 +298,9 @@ private fun AboutSection(appVersionName: String, modifier: Modifier = Modifier) 
         Text(
             text = "Données : Nantes Métropole – Naolib (GTFS, SIRI, perturbations GTFS-RT) et Département de " +
                 "Loire-Atlantique (bacs de Loire), Licence Ouverte ; " +
-                "tracé des lignes : plan-app.naolib.fr ; adresses : geopf.fr ; " +
-                "fond de carte et cheminements piétons : © contributeurs OpenStreetMap (ODbL).",
+                "adresses : geopf.fr ; fond de carte, cheminements piétons et tracé des lignes " +
+                "(dessiné par l'application à partir du GTFS) : © contributeurs OpenStreetMap (ODbL) ; " +
+                "police Noto Sans (SIL Open Font License).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

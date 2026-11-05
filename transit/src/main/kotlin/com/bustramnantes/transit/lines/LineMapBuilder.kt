@@ -1121,7 +1121,10 @@ class LineMapBuilder(
         /** Merge distance ceiling (dp): beyond this, two corridors are two streets at any zoom. */
         const val MAX_MERGE_DP = 60.0
 
-        /** Consecutive nodes of a segment alongside another one before they are merged ([mergeOverlaps]). */
+        /**
+         * Consecutive nodes of a segment alongside another one before they are merged ([mergeOverlaps]):
+         * one node near another corridor is a crossing or a touch, not a parallel corridor.
+         */
         const val MIN_OVERLAP_RUN = 2
 
         /** Directions or variants of the same lines merge up to this far apart (dp, see [mergeLimit]). */
@@ -1163,6 +1166,10 @@ class LineMapBuilder(
         /** A stop's directions on different ways get a marker each when this far apart (dp at the layout zoom, [markers]). */
         const val SPLIT_STOP_DP = 16.0
 
+        /**
+         * Clean-up rounds at most ([cleanUp]). Most layouts settle in 3 or 4; at z12 one overlap merge
+         * keeps recurring on the same stray pair, so the loop needs a bound.
+         */
         private const val MAX_ROUNDS = 16
     }
 }

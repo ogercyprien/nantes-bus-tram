@@ -18,14 +18,14 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 ./gradlew :transit:verifySeed [-PseedInputs=dir]  # rebuild the seed from its archived inputs, check byte for byte
 ```
 - **Seed = deterministic compilation of open data** (`tools/SeedBuild.kt`): OSM extract → walk graph;
-  GTFS + bacs zip + `transit/seed/logical_stops.geojson` → network (crosswalk, footpaths on that graph);
-  OSM → ride paths. From scratch, nothing carried over from the previous seed, each step reading the
+  GTFS + bacs zip → network (footpaths on that graph); OSM → ride paths; network → line map
+  (`line_map.bin`, four layouts). From scratch, nothing carried over from the previous seed, each step reading the
   previous one's file back. `transit/seed/seed-manifest.json` = inputs (name, sha256, size, source)
   + outputs; the GTFS/bacs/OSM inputs are archived on the GitHub release `seed-<hash of inputs>`
   (upload `build/seed-inputs/` after a `buildSeed`: the portal keeps only the current GTFS). File
   names matter: the GTFS file name is the feed id, the extract's name is stored in the walk graph.
   `SeedManifestTest` checks the committed files against the manifest. Without `-Pgtfs` buildSeed
-  downloads the current GTFS as `<publication key>.zip`. The F-Droid recipe `scanignore`s the three
+  downloads the current GTFS as `<publication key>.zip`. The F-Droid recipe `scanignore`s the seed
   files, pointing at the manifest (its scanner flags them as binaries).
 - Android SDK is at `~/android-sdk` (`local.properties` has `sdk.dir`). Java/gradle work out of the box.
 - **No emulator/device is available in this sandbox** — you cannot run the app or screenshot it.
@@ -49,13 +49,14 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 | Real-time departures | **Okina SIRI StopMonitoring** (keyless) | `RealtimeGateway`, `OkinaClient` |
 | Provisional real-time | Okina GTFS-RT TripUpdates (own budget) | `RealtimeGateway` |
 | Disruption notices | **Okina GTFS-RT Alerts** (shares the GTFS-RT budget) | `GtfsRtDisruptionRepository` |
-| Map lines / labels | official raster + vector tiles (plan-app, seeded) | `MapStyle.kt` |
+| Map lines / labels | **our own line map** from the GTFS + OSM ride paths, bundled + rebuilt on the device | `:transit` `lines/`, `LineMapLayers` |
 | Addresses | Géoplateforme | `GeocodingRepositoryImpl` |
 
 The official app's backends - plan-app APIs (board, timetables, itineraries, autocomplete) and the
 Flowbird MaaS API - are **not used**: they were reverse-engineered only as references to measure the
 open data against (SOURCES.md §2-3). The plan-app board has no trip ids, so it can't be joined to the
-timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are used. Don't add them.
+timetable. Real time = SIRI + GTFS-RT only. Since 2026-11 not even the plan-app **map tiles** are used
+(the app draws its own line map). Don't add any of them.
 
 ### Static network (GTFS)
 - Publication resolved through `GET data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/
@@ -73,23 +74,20 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 - `TransitNetworkRepository`: bundled `assets/seed/network.bin` vs the last downloaded
   `filesDir/network/<key>.bin` — **whichever is valid longest wins** (no seed version to bump).
   Refresh = daily `CacheRefreshWorker` + once-a-day app-open check: new publication key → download
-  (unmetered unless the installed feed ends within 3 days) → convert on the device with the current
-  crosswalk carried over → write + re-read → atomic pointer swap. Settings "Effacer" → back to seed.
+  (unmetered unless the installed feed ends within 3 days) → convert on the device → write + re-read →
+  atomic pointer swap (then `LineMapRepository` rebuilds the line map). Settings "Effacer" → back to seed.
   Debug builds: Settings › Débogage converts on the phone and reports time/peak heap.
 - **Ids**: `Stop.id` = GTFS StopPlace id `FR_NAOLIB:StopPlace:<n>`; `Line.id` = `FR_NAOLIB:Line:<short>`;
   `Direction.code` = GTFS `direction_id` (`"0"/"1"`) = SIRI `DirectionName` `A`/`R` (791/791 visits)
   (= the official board's `directionId − 1`). Canonical direction name = most common headsign of that
   direction (same as the official app's on 158/159 directions).
-- **Crosswalk** (`:transit` `Crosswalk`, built at seed time against the official map's stop list
-  `transit/seed/logical_stops.geojson`) = **display positions only**: the raster line tiles are drawn
-  against the official positions. GTFS is finer than the official list where it merges stops: official
-  "Chanzy" (C1;C6;NN) = GTFS Chanzy (C1, NN) + Bretéché (C6); same for Route de la Chapelle/Picabia
-  and Lieu Unique/Duchesse Anne - Château. Display position = the geojson one when exactly one
-  StopPlace took that official stop by name, else GTFS. 1,098/1,101 StopPlaces matched. Five geojson
-  names lag the current ones (`Crosswalk.STALE_NAMES`). `Crosswalk.SEARCH_ALIASES` (former names) is
-  **intentionally empty** — the hook stays for a future rename not yet in GTFS.
-- `NetworkFormat`: magic `NAOLNETW`, **v3** (v1 = without footpaths, v2 = without ride shapes, both
-  still readable). Bump the version on any layout change: an unreadable download falls back to the seed.
+- **Stop positions = GTFS positions.** (Until 2026-11 a seed-time crosswalk against the official
+  map's stop list moved them onto the official positions the raster tiles were drawn against; it went
+  with the tiles, along with its stale-name table and the empty search-alias hook.) GTFS is finer than
+  the official list: Chanzy + Bretéché, Route de la Chapelle + Picabia, Lieu Unique + Duchesse Anne -
+  Château are separate stops. The Plan tab puts its markers on its own lines.
+- `NetworkFormat`: magic `NAOLNETW`, **v4** (v1 = without footpaths, v2 = without ride shapes, v3 =
+  with the display-position flag and aliases per StopPlace; all still readable). Bump the version on any layout change: an unreadable download falls back to the seed.
 - **Ride paths** (`:transit` `RideShapes`, format v3): the GTFS shapes are useless for drawing (all
   one point per stop), so every stop-to-stop **hop** has its street path from OSM, built by
   `:transit:buildSeed` (`tools/RideShapeBuilder` + `VehicleGraph`): bus graph / tram graph from the
@@ -238,43 +236,55 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 - `GtfsSource.appending(extra, spec)` folds it into the Naolib feed as the converter reads it: landings
   numbered from `TransitNetwork.EXTERNAL_NUMBER_BASE` (9,000,000; bacs 9,900,000 + n, e.g.
   `FR_NAOLIB:StopPlace:9900003` Basse-Indre), frequencies expanded (end exclusive), calendar **clipped
-  to the Naolib range**, a short name Naolib already uses becomes "Bac B1". The crosswalk skips those
-  landings. `buildSeed` fetches the current zip (or `-Pbacs`) and bundles it as `assets/seed/bacs_de_loire.zip`; the
+  to the Naolib range**, a short name Naolib already uses becomes "Bac B1". `buildSeed` fetches the current zip (or `-Pbacs`) and bundles it as `assets/seed/bacs_de_loire.zip`; the
   on-device conversion fetches it again and falls back to that copy.
 - Landings are never sent to SIRI (`TransitNetwork.isExternalQuay`): a bac-only stop's board is the
   timetable (not provisional), it registers no real-time interest.
 
-### Map tiles (plan-app)
-- **Map line traces = pre-rendered RASTER overlay** (not vector): `https://plan-app.naolib.fr/data/
-  raster/v5/{z}/{x}/{y}.png` (day; night `v1nuit`). Standard slippy XYZ, 512-px tiles, z6–17. The
-  parallel-lane offsetting is baked into the PNGs; the vector tiles CANNOT reproduce it (co-located
-  routes are byte-identical, un-offset 2-vertex segments — do NOT retry `line-offset`).
-- **Vector tiles** (labels + tap hit-testing only): TileJSON `https://plan-app.naolib.fr/api/
-  external/tilejson/naolib_network.json` → `tile.cartographie.pro`, source layer **`network`**;
-  `route_color` includes `#`, `route_type` is a **String**.
-- **Map line tiles are seeded too**: `assets/seed/naolib_lines_v5_z6-14.mbtiles` (~3.4 MB, MBTiles =
-  SQLite of the v5 raster PNGs, z6–14 over the Nantes bbox). MapLibre's HTTP goes through a dedicated
-  OkHttp client (`@MapTileClient` in `NetworkModule`, set via `HttpRequestUtil.setOkHttpClient` in
-  the Application). `SeedTileInterceptor` serves bundled tiles instantly/offline (MBTiles rows are
-  **TMS** y-flipped — `MbTilesTileStore` handles it); un-seeded zooms (z15+) and the OSM basemap fall
-  through to network and are disk-cached (50 MB). Seed is a build-time snapshot; regenerate the
-  `.mbtiles` + bump `MbTilesTileStore.SEED_VERSION` to refresh. To regen: fetch v5 tiles over the
-  bbox, store as MBTiles (TMS row = `2^z-1-y`). NB the OSM basemap is NOT seeded, so a fully-offline
-  first launch shows lines over the beige backdrop (see below) until OSM loads.
+### Line map (Plan tab)
+The Plan tab draws the network itself, from open data only. **The design and the reason for every
+rule are in `transit/src/main/kotlin/com/bustramnantes/transit/lines/README.md`: read it before
+changing a rule, and keep it in step with the code.**
+- **`:transit` `lines/`** (after LOOM, Bast/Brosi/Storandt): `LineMapBuilder` snaps every drawn
+  pattern's OSM ride path into a graph of corridors (trams first; node ranks tram > Busway/Chronobus
+  > bus > station), stations (≥ 5 lines, quays spread ≥ 40 m) become one junction, clean-up rounds
+  merge twins/bubbles/overlaps, cut knots and contract roundabouts; `LaneOrderer` orders lanes to
+  minimise crossings; `LaneGeometry` offsets them for a draw zoom (junction curves, station dashes).
+  Hops drawn: no minor variants (< 15 % of the line's busiest hop) or detours (< 50 % of the other
+  way) unless they serve a stop of their own; no straight hop > 400 m (boats excepted). One manual
+  adjustment: Pirmil's trams keep the west side (`TRAMS_WEST_HUBS`).
+- **One layout per zoom, z12-z15** (merge distance = bundle widths as drawn at that zoom); z16+ use
+  z15. `LineMapSet` / `LineMapFormat` (`NAOLLMAP` v1, ~190 KB): `assets/seed/line_map.bin` from
+  `buildSeed`; `LineMapRepository` rebuilds it on the phone (~11 s desktop JVM for four layouts) when
+  a downloaded network has none (`filesDir/linemap/<feed id>.bin`), the old one staying on screen.
+  Settings › Débogage times it.
+- **App**: `presentation/map/LineMapLayers` turns the layout for the camera zoom into GeoJSON
+  (lanes already offset, curves, dashes, dots), regenerated off the main thread every half zoom;
+  widths are stored at zoom 0 and scaled exponentially in between (like a raster). Layers: white
+  casing, buses, boats dashed, one group per Busway/Chronobus line (edge `#6B2359`, body, white
+  stripe, 12 % each, so a crossing line hides the stripe), trams, labels (`line-center`), station
+  dashes (z14+), stop dots. Markers are ours (on the lines, near the quays); stops served only by
+  undrawn lines (school runs, night lines) keep a dot at their GTFS position.
+- **Checks**: `LineMapRegressionTest` (crossing budgets 265/300/355/435 at z12-z15, Pirmil, Mellinet,
+  line 30, Mont Blanc, Toutes Joies, Place du Cirque, stations, Haluchère); visual comparison with
+  the official tiles (dev only, images never committed): `LINEMAP_OUT=/abs/dir ./gradlew
+  :transit:test --tests '*LineMapComparisonTest*' --rerun` (`LINEMAP_RANDOM=100` = the reviewed
+  100-view sweep, `LINEMAP_ONLY`, `LINEMAP_DEBUG`).
+- **Fonts are bundled** (`assets/glyphs/NotoSans-Bold/`, SIL OFL, Latin ranges, `asset://` glyphs
+  URL, font stack `MapStyleIds.LABEL_FONT`; no space in the name, it goes into the asset path).
+- The official map (plan-app raster/vector tiles, its font server, its stop list) is **not used** any
+  more, not even seeded. Don't add it back.
 - **Beige map backdrop**: a `BackgroundLayer` (`MapStyleIds.backgroundLayer()`, `#EFE9DD`) is added
-  first (bottom of the style) so areas without loaded basemap tiles — while loading, or offline —
-  read as a loading map instead of a black void. Lines/stops/labels draw on top.
-  - **`MapLibre.setConnected(true)` is REQUIRED for the offline seed to work** (called in the
-    Application). By default MapLibre auto-detects connectivity and, when offline, short-circuits tile
-    requests BEFORE the OkHttp stack — so `SeedTileInterceptor` never runs and seeded tiles never show
-    in airplane mode. The override forces every request through OkHttp (seeded tiles served offline;
-    real-remote tiles just fail fast). Don't remove it.
+  first (bottom of the style) so areas without loaded basemap tiles (while loading, or offline) read
+  as a loading map instead of a black void. Lines/stops/labels draw on top. The OSM basemap is the
+  map's only network dependency (OkHttp disk cache 50 MB via `@MapTileClient`, plus MapLibre's own
+  cache); `MapLibre.setConnected(true)` is no longer called (it only served the bundled tiles).
 
 ## Offline-first design
 - Everything static works with no network on a fresh install: stops, lines, served lines, timetables
   and **itineraries** (with street walks, `assets/seed/walk_graph.bin`) come from the bundled
-  `assets/seed/network.bin`; map lines from the seeded
-  MBTiles. Only real-time, address search and the OSM basemap need the network.
+  `assets/seed/network.bin`; the map's lines, markers and labels from `assets/seed/line_map.bin` and
+  the bundled glyphs. Only real-time, address search and the OSM basemap need the network.
 - Stop Detail renders badges + every direction block instantly from the network (`GetCachedStopLinesUseCase`),
   then the board (provisional at first if the SIRI budget is busy) fills the times.
 - Connectivity errors: `presentation/common/utils/ErrorMessages.kt` maps network exceptions to a
@@ -291,8 +301,8 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   the old id in `legacyStopId`; recent searches are rewritten the same way.
 
 ## Stops (search / merge)
-- **Search is accent-insensitive**: `normalizeForMatch` (NFD + strip marks + lowercase) on names and
-  `Stop.aliases`, filtered in memory over a per-network index. Itinerary fields share this path.
+- **Search is accent-insensitive**: `normalizeForMatch` (NFD + strip marks + lowercase) on names,
+  filtered in memory over a per-network index. Itinerary fields share this path.
 - **Same-name StopPlaces ≤ 150 m apart merge into one marker** (`mergeDuplicateStops`; representative =
   most lines). `Stop.memberIds` lists every member: departures/served lines/timetables use all their
   quays, favorites on any member belong to the stop, and `getStopById` resolves member ids too. Far-apart same-name stops (two "Jean Jaurès", ~9 km) stay separate.
@@ -357,25 +367,24 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
 - Persistent env: `/etc/sandbox-persistent.sh` (never put shell completions there — breaks bash).
 - **Shared map component**: `presentation/common/map/NaolibMapView` = lifecycle-forwarded `MapView` +
   base style (glyphs, beige backdrop, OSM basemap); a screen adds its own sources/layers in
-  `onStyleLoaded(map, style)` (Plan tab: network raster + labels + stops; itinerary maps: rides/walks).
+  `onStyleLoaded(map, style)` (Plan tab: line map + labels + stops; itinerary maps: rides/walks).
 - **MapLibre init order at startup.** `HttpRequestUtil.setOkHttpClient()` triggers MapLibre's
   `HttpRequestImpl` static init → `MapLibre.getApplicationContext()`, which throws if
   `MapLibre.getInstance()` hasn't run. `BusEtTramApplication.onCreate` therefore calls
   `MapLibre.getInstance(this)` **before** `setOkHttpClient(...)` (else instant crash on launch,
   before any screen). Any future startup code touching MapLibre HTTP must stay after that init.
-- **Line-number labels had TWO independent bugs (both fixed).** (1) MapLibre symbol text needs a
-  `glyphs` source; a bare `Style.Builder()` has none, so ANY `SymbolLayer` text silently never
-  renders while raster/circle layers still work — the style is now started from
-  `MapStyleIds.baseStyleJson()` (sets `glyphs` → `tile.cartographie.pro/fonts/...`). (2) The network
-  vector tiles are tiny 2-vertex segments, and `symbol-placement: line` places a label only where a
-  feature is longer than the spacing → placed *zero* labels; use `SYMBOL_PLACEMENT_LINE_CENTER` (one
-  label per segment, collision-thinned). Labels show at zoom ≥13, drawn in `route_color` + white halo.
+- **Map labels need two things.** (1) MapLibre symbol text needs a `glyphs` source; a bare
+  `Style.Builder()` has none, so ANY `SymbolLayer` text silently never renders while line/circle
+  layers still work: the style starts from `MapStyleIds.baseStyleJson()` (`glyphs` = the bundled
+  `asset://glyphs/...`). (2) `symbol-placement: line` places a label only where a feature is longer
+  than the label spacing, which short lane pieces never are: use `SYMBOL_PLACEMENT_LINE_CENTER` (one
+  label per piece, collision-thinned). Labels show at zoom ≥13, in the line colour + white halo.
 - `:transit` is pure JVM: SIRI XML goes through the XmlPullParser API (Android provides it at
   runtime via `android.util.Xml`; kxml2 is only `compileOnly`/`testImplementation`). GTFS-RT uses a
   hand-written protobuf decoder (no Wire/protobuf runtime — F-Droid friendly).
 
 ## Feature state (implemented)
-Map with Naolib lines (pre-rendered raster overlay, seeded offline) + line-number labels + stops;
+Map with our own drawing of the Naolib lines (side by side, from GTFS + OSM, offline) + line-number labels + stops;
 unified search (stops/addresses/itinerary); stop detail with all lines/directions (terminus-aware),
 "Provisoire" boards and short-run labels; theoretical timetables (local); itinerary results and journey detail on a map (street-accurate ride
 paths from OSM, side-by-side lanes for shared paths); favorites (stop / stop+line /
@@ -386,11 +395,12 @@ Search entry's `SavedStateHandle`); journey share menu (calendar via `ACTION_INS
 PNG through the `${applicationId}.fileprovider`; texts from `JourneyShareText.kt`). Suspected phantom
 departures are flagged everywhere and near-term itineraries avoid them. Disruption notices (GTFS-RT
 Alerts) on stops, favorites, itineraries and a "Perturbations" screen.
-Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `RealtimeTest`,
-`RealNetworkBenchmarkTest` (seed network), `RideShapesTest`. Tests (`:app`): `NetworkIndexTest`, `FavoriteRekeyerTest`,
+Tests (`:transit`): `GtfsConverterTest`, `RaptorTest`, `RealtimeTest`,
+`RealNetworkBenchmarkTest` (seed network), `RideShapesTest`, `LineMapRegressionTest`, `LineMapFormatTest`
+(opt-in renderer: `LineMapComparisonTest`). Tests (`:app`): `NetworkIndexTest`, `FavoriteRekeyerTest`,
 `StopMergeTest`, `RealtimeGatewayTest`, `RequestBudgetTest`, `LocalItineraryRepositoryTest`,
 `JourneyPhantomCheckTest`, `JourneyWalkTrimmingTest`, `DepartureGroupingTest`, `PhantomDeparturesTest`,
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,
 `JourneyShareTextTest`, `TimetableHourBlocksTest`, `StopDetailFavoritesTest`, `GtfsRtDisruptionRepositoryTest`,
-`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, `OptionLanesTest`, … (`:transit` also `ServiceAlertsTest`,
+`DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, `OptionLanesTest`, `LineMapLayersTest`, … (`:transit` also `ServiceAlertsTest`,
 `WalkGraphTest`, `BacsDeLoireTest`, `GtfsPublicationTest`, `SeedManifestTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).
