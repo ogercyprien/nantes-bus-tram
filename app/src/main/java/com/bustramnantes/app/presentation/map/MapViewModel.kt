@@ -2,6 +2,10 @@ package com.bustramnantes.app.presentation.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import com.bustramnantes.app.data.local.AppPreferencesDataStore
+import com.bustramnantes.app.data.network.LineMapRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.bustramnantes.app.domain.model.Line
 import com.bustramnantes.app.domain.repository.FavoriteRepository
 import com.bustramnantes.app.domain.repository.LineRepository
@@ -32,6 +36,9 @@ class MapViewModel @Inject constructor(
     private val stopRepository: StopRepository,
     private val lineRepository: LineRepository,
     private val favoriteRepository: FavoriteRepository,
+    lineMapRepository: LineMapRepository,
+    preferences: AppPreferencesDataStore,
+    @ApplicationContext context: Context,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
@@ -52,6 +59,15 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             stopRepository.observeStops().collect { stops ->
                 _uiState.update { it.copy(stops = stops, isLoadingStops = false) }
+            }
+        }
+        viewModelScope.launch {
+            lineMapRepository.lineMaps.collect { maps -> _uiState.update { it.copy(lineMaps = maps) } }
+        }
+        val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (debuggable) {
+            viewModelScope.launch {
+                preferences.officialLineTiles.collect { official -> _uiState.update { it.copy(officialLineTiles = official) } }
             }
         }
         viewModelScope.launch {

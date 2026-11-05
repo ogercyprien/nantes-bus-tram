@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -121,6 +122,8 @@ fun SettingsScreen(
                         isConverting = uiState.isDebugConverting,
                         onConvertClicked = { viewModel.onEvent(SettingsEvent.DebugConvertGtfsClicked) },
                         onRebuildLineMapClicked = { viewModel.onEvent(SettingsEvent.DebugRebuildLineMapClicked) },
+                        officialLineTiles = uiState.officialLineTiles,
+                        onOfficialLineTilesChanged = { viewModel.onEvent(SettingsEvent.DebugOfficialLineTilesChanged(it)) },
                     )
                 }
             }
@@ -317,6 +320,8 @@ private fun DebugSection(
     isConverting: Boolean,
     onConvertClicked: () -> Unit,
     onRebuildLineMapClicked: () -> Unit,
+    officialLineTiles: Boolean,
+    onOfficialLineTilesChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -330,6 +335,18 @@ private fun DebugSection(
         }
         OutlinedButton(onClick = onRebuildLineMapClicked, enabled = !isConverting, modifier = Modifier.padding(horizontal = 16.dp)) {
             Text("Recalculer le tracé des lignes")
+        }
+        // Compare our line map with the official tiles on the phone, before the official path goes.
+        androidx.compose.foundation.layout.Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = "Tracé des lignes : " + if (officialLineTiles) "officiel" else "open data",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(checked = officialLineTiles, onCheckedChange = onOfficialLineTilesChanged)
         }
     }
 }

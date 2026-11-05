@@ -2,6 +2,7 @@ package com.bustramnantes.app.presentation.map
 
 import com.bustramnantes.app.domain.model.Line
 import com.bustramnantes.app.domain.model.Stop
+import com.bustramnantes.transit.lines.LineMapSet
 
 /**
  * A stop search result row, paired with the resolved [Line] badges for [Stop.linkedLines]
@@ -28,6 +29,10 @@ data class MapUiState(
     val searchResults: List<StopSearchResult> = emptyList(),
     /** Stop id to preselect (highlight ring + center camera), set by "Voir sur la carte". */
     val preselectStopId: String? = null,
+    /** Our line map (one layout per zoom) for the network in use; null until read at startup. */
+    val lineMaps: LineMapSet? = null,
+    /** Debug builds only: draw the official raster tiles instead of [lineMaps] (Settings › Débogage). */
+    val officialLineTiles: Boolean = false,
 ) {
     /** Whether the "no results" empty state should be shown under the search bar. */
     val showNoResults: Boolean

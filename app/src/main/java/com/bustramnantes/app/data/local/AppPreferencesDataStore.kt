@@ -91,7 +91,19 @@ class AppPreferencesDataStore @Inject constructor(
         dataStore.edit { prefs -> prefs[LAST_SIRI_REQUEST_AT_KEY] = epochMs }
     }
 
+    /**
+     * Debug builds only (Settings › Débogage): draw the Plan tab's lines from the official raster
+     * tiles instead of our own line map, to compare the two on the phone before the official path is
+     * removed. Defaults to `false` (our line map).
+     */
+    val officialLineTiles: Flow<Boolean> = dataStore.data.map { prefs -> prefs[OFFICIAL_LINE_TILES_KEY] ?: false }
+
+    suspend fun setOfficialLineTiles(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[OFFICIAL_LINE_TILES_KEY] = enabled }
+    }
+
     private companion object {
+        val OFFICIAL_LINE_TILES_KEY = booleanPreferencesKey("debug_official_line_tiles")
         val LAST_SIRI_REQUEST_AT_KEY = longPreferencesKey("last_siri_request_at")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val LAST_ACTIVE_TAB_KEY = stringPreferencesKey("last_active_tab")

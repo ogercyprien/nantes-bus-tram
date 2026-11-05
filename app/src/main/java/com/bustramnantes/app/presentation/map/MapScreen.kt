@@ -54,7 +54,12 @@ import com.bustramnantes.app.presentation.common.utils.NANTES_LATITUDE
 import com.bustramnantes.app.presentation.common.utils.NANTES_LONGITUDE
 import com.bustramnantes.app.presentation.common.utils.isWithinNantesArea
 import com.bustramnantes.app.presentation.map.components.MapSearchBar
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import com.bustramnantes.transit.lines.MapRoute
+import com.bustramnantes.transit.lines.WebMercator
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -79,7 +84,9 @@ private val STOP_SHEET_PEEK_HEIGHT = 300.dp
 
 /**
  * Full-screen Naolib network map, on the shared [NaolibMapView] (base style + lifecycle forwarding)
- * with the network raster lines, line labels and stops on top.
+ * with our own line map on top ([LineMapLayers]: lines side by side, stop dots on the lines, station
+ * dashes), redrawn every half zoom. Debug builds can switch back to the official raster tiles
+ * (Settings › Débogage) to compare the two.
  *
  * Unlike the Home/Search/Itinerary entry points (which open Stop Detail as a `ModalBottomSheet` over
  * a `dialog()` destination), the map hosts the **same sheet body** ([StopDetailSheetInner]) itself,
@@ -144,6 +151,11 @@ fun MapScreen(
     // Kept fresh across recomposition so the (long-lived, created-once) MapLibre click listener
     // below always reads the latest stops rather than closing over a stale list.
     val latestStops by rememberUpdatedState(uiState.stops)
+    // The camera's zoom, rounded to half a level when the camera settles: the line map is redrawn for it.
+    var zoomBucket by remember { mutableStateOf(DEFAULT_ZOOM) }
+    // What the line map currently shows: the routes its layers were built for, and its stop markers.
+    var lineMapRoutes by remember { mutableStateOf<List<MapRoute>?>(null) }
+    var markerStops by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
@@ -194,14 +206,8 @@ fun MapScreen(
         // "recenter on me" FAB, so the compass would collide with it there.
         map.uiSettings.setCompassGravity(android.view.Gravity.BOTTOM or android.view.Gravity.START)
         map.uiSettings.setCompassMargins((12 * density).toInt(), 0, 0, (16 * density).toInt())
-        // Visible colored line traces: a pre-rendered raster overlay whose parallel-lane
-        // separation is baked in upstream (matches the official Naolib map; the vector tiles
-        // can't produce non-overlapping lanes) - see MapStyleIds.SOURCE_NETWORK_RASTER.
-        loadedStyle.addSource(MapStyleIds.networkRasterSource())
-        loadedStyle.addLayer(MapStyleIds.networkRasterLayer())
-        // Vector network source kept only for line-number labels drawn along the routes.
-        loadedStyle.addSource(MapStyleIds.networkVectorSource())
-        loadedStyle.addLayer(MapStyleIds.networkLabelLayer())
+        // The lines (ours, or the official tiles in debug builds) go below these two layers: see the
+        // effects keyed on the line map further down.
         // Selected-stop halo is added BEFORE the stops layer so the white stop dot draws on top
         // of its highlight ring (the ring surrounds the dot rather than covering it).
         loadedStyle.addSource(MapStyleIds.selectedStopSource(selectedStop))
@@ -212,6 +218,7 @@ fun MapScreen(
         map.moveCamera(
             CameraUpdateFactory.newLatLngZoom(LatLng(NANTES_LATITUDE, NANTES_LONGITUDE), DEFAULT_ZOOM),
         )
+        map.addOnCameraIdleListener { zoomBucket = (map.cameraPosition.zoom * 2).roundToInt() / 2.0 }
 
         val tapTolerancePx = TAP_TOLERANCE_DP * density
         map.addOnMapClickListener { latLng ->
@@ -223,9 +230,13 @@ fun MapScreen(
                 screenPoint.x + tapTolerancePx,
                 screenPoint.y + tapTolerancePx,
             )
-            val tappedFeature = map.queryRenderedFeatures(tapBox, MapStyleIds.LAYER_STOPS).firstOrNull()
+            val tappedFeature = map.queryRenderedFeatures(
+                tapBox, MapStyleIds.LAYER_STOPS, LineMapLayers.LAYER_DOTS, LineMapLayers.LAYER_DASH,
+            ).firstOrNull()
+            // Both the line map's markers and the fallback dots carry a StopPlace id; a merged stop
+            // answers to any of its members' ids.
             val tappedStopId = tappedFeature?.getStringProperty(MapStyleIds.STOP_PROPERTY_ID)
-            val tappedStop = tappedStopId?.let { id -> latestStops.firstOrNull { it.id == id } }
+            val tappedStop = tappedStopId?.let { id -> latestStops.firstOrNull { it.id == id || id in it.memberIds } }
             if (tappedStop != null) {
                 selectStopOnMap(tappedStop)
             } else {
@@ -239,16 +250,62 @@ fun MapScreen(
         style = loadedStyle
     }
 
-    // Keep the stops GeoJSON source in sync with the Room-backed cache.
-    LaunchedEffect(style, uiState.stops) {
-        style?.getSourceAs<GeoJsonSource>(MapStyleIds.SOURCE_STOPS)
-            ?.setGeoJson(MapStyleIds.stopsToFeatureCollection(uiState.stops))
+    // Official tiles (debug builds, Settings › Débogage) or our line map: switch the layers.
+    LaunchedEffect(style, uiState.officialLineTiles) {
+        val s = style ?: return@LaunchedEffect
+        if (uiState.officialLineTiles) {
+            LineMapLayers.remove(s)
+            lineMapRoutes = null
+            markerStops = emptySet()
+            if (s.getSource(MapStyleIds.SOURCE_NETWORK_RASTER) == null) {
+                s.addSource(MapStyleIds.networkRasterSource())
+                s.addLayerBelow(MapStyleIds.networkRasterLayer(), MapStyleIds.LAYER_SELECTED_STOP)
+                s.addSource(MapStyleIds.networkVectorSource())
+                s.addLayerBelow(MapStyleIds.networkLabelLayer(), MapStyleIds.LAYER_SELECTED_STOP)
+            }
+        } else if (s.getSource(MapStyleIds.SOURCE_NETWORK_RASTER) != null) {
+            s.removeLayer(MapStyleIds.LAYER_NETWORK_LABELS)
+            s.removeLayer(MapStyleIds.LAYER_NETWORK_RASTER)
+            s.removeSource(MapStyleIds.SOURCE_NETWORK)
+            s.removeSource(MapStyleIds.SOURCE_NETWORK_RASTER)
+        }
     }
 
-    // Move the highlight ring to whichever stop was last opened (persists after the sheet closes).
-    LaunchedEffect(style, selectedStop) {
+    // Our line map: the layout for the current zoom, redrawn off the main thread for each half zoom.
+    LaunchedEffect(style, uiState.lineMaps, uiState.officialLineTiles, zoomBucket) {
+        val s = style ?: return@LaunchedEffect
+        val maps = uiState.lineMaps ?: return@LaunchedEffect
+        if (uiState.officialLineTiles) return@LaunchedEffect
+        val zoom = zoomBucket
+        val layout = maps.layoutFor(zoom)
+        val rendered = withContext(Dispatchers.Default) { LineMapLayers.render(layout, zoom) }
+        if (lineMapRoutes !== layout.routes) {
+            LineMapLayers.install(s, layout.routes, MapStyleIds.LAYER_SELECTED_STOP)
+            lineMapRoutes = layout.routes
+        }
+        LineMapLayers.show(s, rendered)
+        markerStops = rendered.markerStops
+    }
+
+    // Stop dots for the stops the line map has no marker for (served only by lines it doesn't draw:
+    // school runs, night lines), at their GTFS position, so every stop can still be tapped. With the
+    // official tiles: every stop.
+    LaunchedEffect(style, uiState.stops, markerStops) {
+        val shown = if (markerStops.isEmpty()) uiState.stops else uiState.stops.filter { stop -> stop.memberIds.none { it in markerStops } }
+        style?.getSourceAs<GeoJsonSource>(MapStyleIds.SOURCE_STOPS)
+            ?.setGeoJson(MapStyleIds.stopsToFeatureCollection(shown))
+    }
+
+    // Move the highlight ring to whichever stop was last opened (persists after the sheet closes): on
+    // its marker on the lines when the line map has one, else at the stop's position.
+    LaunchedEffect(style, selectedStop, markerStops, zoomBucket) {
+        val stop = selectedStop
+        val marker = stop?.let { st ->
+            uiState.lineMaps?.takeIf { markerStops.isNotEmpty() }?.layoutFor(zoomBucket)?.stops?.firstOrNull { it.stopId in st.memberIds }
+        }
+        val ring = if (stop != null && marker != null) stop.copy(lat = WebMercator.lat(marker.y), lon = WebMercator.lon(marker.x)) else stop
         style?.getSourceAs<GeoJsonSource>(MapStyleIds.SOURCE_SELECTED_STOP)
-            ?.setGeoJson(MapStyleIds.stopsToFeatureCollection(listOfNotNull(selectedStop)))
+            ?.setGeoJson(MapStyleIds.stopsToFeatureCollection(listOfNotNull(ring)))
     }
 
     // "Voir sur la carte": preselect + open the sheet for the stop the dialog handed us (via this
