@@ -1,7 +1,7 @@
 # Builds, signs and publishes the release APKs for every `v*` tag.
 #
-# Produces exactly what F-Droid verifies against (each build block's `binary:` in
-# fdroid/com.bustramnantes.app.yml): the unsigned `assembleRelease` - one APK per ABI plus a
+# Produces exactly what F-Droid verifies against (each build block's `binary:` in the fdroiddata
+# recipe, metadata/com.bustramnantes.app.yml in fdroiddata): the unsigned `assembleRelease` - one APK per ABI plus a
 # universal one, from the ABI splits - signed by fdroid/sign-release.sh and attached to the GitHub
 # release of the tag as app-{armeabi-v7a,arm64-v8a,x86_64,universal}-release.apk.
 #

@@ -56,7 +56,9 @@ signer_args=(--ks "$KEYSTORE" --ks-key-alias "$KEY_ALIAS")
 [ -n "${KS_PASS:-}" ] && signer_args+=(--ks-pass "$KS_PASS")
 [ -n "${KEY_PASS:-}" ] && signer_args+=(--key-pass "$KEY_PASS")
 
-expected="$(sed -n 's/^AllowedAPKSigningKeys: *\([0-9a-f]\{64\}\).*/\1/p' fdroid/com.bustramnantes.app.yml)"
+# The release key's certificate, as `AllowedAPKSigningKeys` in the fdroiddata recipe
+# (metadata/com.bustramnantes.app.yml in fdroiddata, kept outside this repository): change both together.
+expected="744e045d95b339648687b5a1517fcb6a98fc557157980bbaad8b035ee94829b1"
 
 # minSdk 26: v2 + v3 schemes only (no v1 JAR signature, no v4 .idsig side file).
 # --alignment-preserved: without it apksigner re-pads the zip entries, so the signed APK is no
@@ -81,7 +83,7 @@ for v in "${VARIANTS[@]}"; do
     exit 1
   fi
   if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
-    echo "Signed with the wrong key: AllowedAPKSigningKeys in fdroid/com.bustramnantes.app.yml is $expected." >&2
+    echo "Signed with the wrong key: the fdroiddata recipe's AllowedAPKSigningKeys is $expected." >&2
     exit 1
   fi
 done

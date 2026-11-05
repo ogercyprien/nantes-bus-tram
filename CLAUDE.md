@@ -332,8 +332,9 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   disabled, no `signingConfig`. `fdroid/sign-release.sh` signs with apksigner
   `--alignment-preserved true` (without it F-Droid's apksigcopier check fails) and checks the
   certificate against `AllowedAPKSigningKeys` by hex digest only (apksigner's labels changed in
-  build-tools 37; CI runners pick the newest build-tools). Recipe for
-  fdroiddata: `fdroid/com.bustramnantes.app.yml`; store texts/images in `fastlane/metadata/`.
+  build-tools 37; CI runners pick the newest build-tools). The fdroiddata
+  recipe (`metadata/com.bustramnantes.app.yml` there) is kept outside this repository; store
+  texts/images in `fastlane/metadata/`.
   Release flow in README "Releasing".
 - **One APK per ABI** (libmaplibre.so is 8-11 MB per ABI, uncompressed): ABI splits make
   armeabi-v7a / arm64-v8a / x86_64 + universal (GitHub only); x86 is excluded everywhere

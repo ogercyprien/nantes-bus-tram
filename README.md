@@ -96,7 +96,8 @@ Live, opt-in tests hit the real services:
 
 The release build is unsigned and reproducible: F-Droid rebuilds each tag, checks that its build is
 byte-identical to the APK attached to the GitHub release and publishes that APK, signed with our key
-(`fdroid/com.bustramnantes.app.yml` is the fdroiddata recipe).
+(the fdroiddata recipe, `metadata/com.bustramnantes.app.yml` in fdroiddata, is kept outside this
+repository).
 
 **One APK per ABI.** The map engine's native code (`libmaplibre.so`, 8-11 MB per ABI, stored
 uncompressed) is most of the APK, so the release build makes one APK per ABI plus a universal one:

@@ -128,7 +128,7 @@ android {
 // Real versionCode of each APK = base * 10 + this digit (universal = 0). F-Droid installs the
 // highest code a device accepts, so arm64-v8a must beat armeabi-v7a (a 64-bit phone runs both),
 // and the ABI lives in the last digit so a new version always beats every ABI of the previous one.
-// Keep in sync with VercodeOperation in fdroid/com.bustramnantes.app.yml.
+// Keep in sync with VercodeOperation in the fdroiddata recipe (metadata/com.bustramnantes.app.yml).
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
