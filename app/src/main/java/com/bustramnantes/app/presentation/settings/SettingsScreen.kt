@@ -120,6 +120,7 @@ fun SettingsScreen(
                     DebugSection(
                         isConverting = uiState.isDebugConverting,
                         onConvertClicked = { viewModel.onEvent(SettingsEvent.DebugConvertGtfsClicked) },
+                        onRebuildLineMapClicked = { viewModel.onEvent(SettingsEvent.DebugRebuildLineMapClicked) },
                     )
                 }
             }
@@ -309,9 +310,15 @@ private fun AboutSection(appVersionName: String, modifier: Modifier = Modifier) 
 /**
  * Debug builds only: converts the current open-data GTFS on this phone and
  * reports the time and peak heap - the go/no-go for on-device conversion (vs a hosted packed file).
+ * Same for the line map's layouts, rebuilt on the phone after each GTFS refresh.
  */
 @Composable
-private fun DebugSection(isConverting: Boolean, onConvertClicked: () -> Unit, modifier: Modifier = Modifier) {
+private fun DebugSection(
+    isConverting: Boolean,
+    onConvertClicked: () -> Unit,
+    onRebuildLineMapClicked: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         SectionHeader("Débogage")
         OutlinedButton(onClick = onConvertClicked, enabled = !isConverting, modifier = Modifier.padding(16.dp)) {
@@ -320,6 +327,9 @@ private fun DebugSection(isConverting: Boolean, onConvertClicked: () -> Unit, mo
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text("Convertir le GTFS sur l'appareil")
+        }
+        OutlinedButton(onClick = onRebuildLineMapClicked, enabled = !isConverting, modifier = Modifier.padding(horizontal = 16.dp)) {
+            Text("Recalculer le tracé des lignes")
         }
     }
 }

@@ -40,7 +40,7 @@ tasks.register<JavaExec>("convertBenchmark") {
     maxHeapSize = (providers.gradleProperty("heap").getOrElse("512m"))
 }
 
-// Seed data (app/src/main/assets/seed/{walk_graph.bin, network.bin, bacs_de_loire.zip}): compiled from
+// Seed data (app/src/main/assets/seed/{walk_graph.bin, network.bin, bacs_de_loire.zip, line_map.bin}): compiled from
 // open data and recorded in seed/seed-manifest.json - see tools/SeedBuild.kt.
 val seedRepo = "https://github.com/ogercyprien/nantes-bus-tram"
 

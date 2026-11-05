@@ -53,6 +53,11 @@
             "file": "app/src/main/assets/seed/bacs_de_loire.zip",
             "sha256": "7c095833b3bfb80fcafe1a176a7e749f782c979735227b662be9d4146b0bf9ad",
             "size": 3979
+        },
+        {
+            "file": "app/src/main/assets/seed/line_map.bin",
+            "sha256": "717b5d5272be6c3de2fa5da89b452cffcf356559ec9fa827bab740e78892393d",
+            "size": 190718
         }
     ]
 }

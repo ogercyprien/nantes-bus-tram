@@ -47,6 +47,7 @@ sealed interface SettingsEvent {
 
     /** Debug builds: run the on-device GTFS conversion diagnostic. */
     data object DebugConvertGtfsClicked : SettingsEvent
+    data object DebugRebuildLineMapClicked : SettingsEvent
 }
 
 /** One-off Settings effects (snackbars) delivered via [SettingsViewModel.effects]. */
@@ -130,6 +131,7 @@ class SettingsViewModel @Inject constructor(
             SettingsEvent.ClearFavoritesDismissed -> _uiState.update { it.copy(showClearFavoritesDialog = false) }
             SettingsEvent.ClearFavoritesConfirmed -> clearFavorites()
             SettingsEvent.DebugConvertGtfsClicked -> debugConvertGtfs()
+            SettingsEvent.DebugRebuildLineMapClicked -> debugRebuildLineMap()
         }
     }
 
@@ -168,6 +170,16 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isDebugConverting = true) }
         viewModelScope.launch {
             val report = runCatching { transitDataDiagnostics.convertNow() }.getOrElse { "Échec : $it" }
+            _uiState.update { it.copy(isDebugConverting = false) }
+            _effects.emit(SettingsEffect.DebugReport(report))
+        }
+    }
+
+    private fun debugRebuildLineMap() {
+        if (_uiState.value.isDebugConverting) return
+        _uiState.update { it.copy(isDebugConverting = true) }
+        viewModelScope.launch {
+            val report = runCatching { transitDataDiagnostics.rebuildLineMapNow() }.getOrElse { "Échec : $it" }
             _uiState.update { it.copy(isDebugConverting = false) }
             _effects.emit(SettingsEffect.DebugReport(report))
         }

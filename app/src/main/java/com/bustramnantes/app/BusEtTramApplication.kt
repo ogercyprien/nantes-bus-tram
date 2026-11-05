@@ -4,6 +4,7 @@ import android.app.Application
 import com.bustramnantes.app.di.MapTileClient
 import com.bustramnantes.app.worker.BackgroundWorkScheduler
 import com.bustramnantes.app.data.repository.FavoriteRekeyer
+import com.bustramnantes.app.data.network.LineMapRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,8 @@ import org.maplibre.android.module.http.HttpRequestUtil
  *    bundled line-raster seed is served offline/instantly (via its interceptor) and map tiles are
  *    disk-cached. Set once here, before any `MapView` is created (MapLibre reads it lazily).
  *  - [FavoriteRekeyer.run] - moves favorites whose StopPlace a new GTFS publication retired.
+ *  - [LineMapRepository] is created here so it starts watching the network at once: after a GTFS
+ *    refresh it rebuilds the line map in the background, whether or not the Plan tab is open.
  *
  * Field injection into a `@HiltAndroidApp` `Application` is populated by Hilt's generated base
  * class before this `onCreate()` body runs, as long as `super.onCreate()` is called first.
@@ -38,6 +41,9 @@ class BusEtTramApplication : Application() {
 
     @Inject
     lateinit var favoriteRekeyer: FavoriteRekeyer
+
+    @Inject
+    lateinit var lineMapRepository: LineMapRepository
 
     /** Process-wide scope for fire-and-forget startup work. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

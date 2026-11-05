@@ -10,6 +10,8 @@ import com.bustramnantes.transit.gtfs.GtfsPublication
 import com.bustramnantes.transit.gtfs.GtfsSource
 import com.bustramnantes.transit.gtfs.appending
 import com.bustramnantes.transit.hopKeys
+import com.bustramnantes.transit.lines.LineMapFormat
+import com.bustramnantes.transit.lines.LineMapSet
 import com.bustramnantes.transit.walk.Footpaths
 import com.bustramnantes.transit.walk.WalkGraphFormat
 import com.bustramnantes.transit.withCrosswalk
@@ -32,11 +34,11 @@ import java.net.URI
 import java.security.MessageDigest
 
 /**
- * The bundled seed data - `app/src/main/assets/seed/{walk_graph.bin, network.bin, bacs_de_loire.zip}` -
+ * The bundled seed data - `app/src/main/assets/seed/{walk_graph.bin, network.bin, bacs_de_loire.zip, line_map.bin}` -
  * is a deterministic compilation of open data, recorded in `transit/seed/seed-manifest.json`:
  *
  * - `./gradlew :transit:buildSeed -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf [-Pgtfs=zip] [-Pbacs=zip]`
- *   rebuilds the three files from scratch and rewrites the manifest. Without `-Pgtfs` / `-Pbacs` it
+ *   rebuilds the four files from scratch and rewrites the manifest. Without `-Pgtfs` / `-Pbacs` it
  *   downloads the current GTFS (named `<publication key>.zip`, see [GtfsPublication]) and bacs zip.
  *   Every input is gathered in `build/seed-inputs/`: upload those files, names unchanged, to the
  *   GitHub release the manifest names (`archive`) - the portal keeps only the current GTFS, and
@@ -49,7 +51,8 @@ import java.security.MessageDigest
  * OSM extract -> walking graph ([WalkGraphBuilder]); GTFS + bacs ([BacsDeLoire]) -> network
  * ([GtfsConverter]) with the display-position [Crosswalk] (`transit/seed/logical_stops.geojson`) and
  * the quay-to-quay [Footpaths] on that graph; OSM extract -> street path of every ride hop
- * ([RideShapeBuilder]). Nothing is carried over from a previous seed, so the output depends on the
+ * ([RideShapeBuilder]); network with its ride paths -> the line map's layouts ([LineMapSet], drawn by
+ * the Plan tab). Nothing is carried over from a previous seed, so the output depends on the
  * inputs alone. The walking graph embeds the extract's file name, the network the GTFS file name
  * (its feed id): keep both names.
  */
@@ -75,7 +78,8 @@ private class SeedLayout(val root: File) {
 private const val WALK_GRAPH = "walk_graph.bin"
 private const val NETWORK = "network.bin"
 private const val BACS = "bacs_de_loire.zip"
-private val OUTPUTS = listOf(WALK_GRAPH, NETWORK, BACS)
+private const val LINE_MAP = "line_map.bin"
+private val OUTPUTS = listOf(WALK_GRAPH, NETWORK, BACS, LINE_MAP)
 
 private const val GTFS_SOURCE = "data.nantesmetropole.fr dataset 244400404_transports_commun_naolib_nantes_metropole_gtfs " +
     "(Nantes Métropole / Naolib, Licence Ouverte v2.0); the file name is its feed id"
@@ -85,7 +89,7 @@ private const val OSM_SOURCE = "Geofabrik extract https://download.geofabrik.de/
     "(© OpenStreetMap contributors, ODbL 1.0)"
 private const val STOPS_SOURCE = "official Naolib map stop list (plan-app.naolib.fr), in this repository - display positions only"
 
-/** Builds the three seed files from [osm], [gtfs] (feed id = its file name) and [bacs] into [outDir]. */
+/** Builds the four seed files from [osm], [gtfs] (feed id = its file name) and [bacs] into [outDir]. */
 private fun runPipeline(osm: File, gtfs: File, bacs: File, stops: File, outDir: File) {
     outDir.mkdirs()
     val walkFile = File(outDir, WALK_GRAPH)
@@ -111,8 +115,14 @@ private fun runPipeline(osm: File, gtfs: File, bacs: File, stops: File, outDir: 
     val reread = networkFile.inputStream().buffered().use(NetworkFormat::read)
     val (shapes, rs) = RideShapeBuilder.build(reread, osm)
     networkFile.outputStream().buffered().use { NetworkFormat.write(reread.withRideShapes(shapes), it) }
-    networkFile.inputStream().buffered().use(NetworkFormat::read) // never ship a file that doesn't load
+    val shipped = networkFile.inputStream().buffered().use(NetworkFormat::read) // never ship a file that doesn't load
     println("ride paths: ${rs.hops} hops, ${rs.routed} routed, ${rs.straight} straight")
+
+    val lineMapFile = File(outDir, LINE_MAP)
+    val lineMaps = LineMapSet.build(shipped)
+    lineMapFile.outputStream().buffered().use { LineMapFormat.write(lineMaps, it) }
+    val reloaded = lineMapFile.inputStream().buffered().use(LineMapFormat::read)
+    println("line map: " + reloaded.layouts.entries.joinToString { (z, m) -> "z$z ${m.segments.size} segments, ${m.crossings()} crossings" })
 }
 
 private fun buildSeed(layout: SeedLayout, opts: Map<String, String>) {

@@ -15,6 +15,8 @@ class ScheduleCoverageRepositoryImpl @Inject constructor(
 /** [TransitDataDiagnostics] backed by the network repository (debug Settings action). */
 class TransitDataDiagnosticsImpl @Inject constructor(
     private val networkRepository: TransitNetworkRepository,
+    private val lineMapRepository: LineMapRepository,
 ) : com.bustramnantes.app.domain.repository.TransitDataDiagnostics {
     override suspend fun convertNow(): String = networkRepository.debugConvertNow()
+    override suspend fun rebuildLineMapNow(): String = lineMapRepository.debugRebuild()
 }
