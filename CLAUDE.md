@@ -14,10 +14,19 @@ transit core (GTFS converter, packed network, RAPTOR, SIRI/GTFS-RT parsing, boar
 ./gradlew :transit:test :app:testDebugUnitTest   # JVM unit tests (fast, no device)
 ./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-<abi>-debug.apk (+ universal)
 ./gradlew :app:compileDebugKotlin                # quick type-check
-./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin from the current GTFS
-./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate assets/seed/walk_graph.bin
-./gradlew :transit:packRideShapes -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf # add OSM ride paths to assets/seed/network.bin
+./gradlew :transit:buildSeed -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf [-Pgtfs=zip] [-Pbacs=zip]  # rebuild the whole seed + manifest
+./gradlew :transit:verifySeed [-PseedInputs=dir]  # rebuild the seed from its archived inputs, check byte for byte
 ```
+- **Seed = deterministic compilation of open data** (`tools/SeedBuild.kt`): OSM extract → walk graph;
+  GTFS + bacs zip + `transit/seed/logical_stops.geojson` → network (crosswalk, footpaths on that graph);
+  OSM → ride paths. From scratch, nothing carried over from the previous seed, each step reading the
+  previous one's file back. `transit/seed/seed-manifest.json` = inputs (name, sha256, size, source)
+  + outputs; the GTFS/bacs/OSM inputs are archived on the GitHub release `seed-<hash of inputs>`
+  (upload `build/seed-inputs/` after a `buildSeed`: the portal keeps only the current GTFS). File
+  names matter: the GTFS file name is the feed id, the extract's name is stored in the walk graph.
+  `SeedManifestTest` checks the committed files against the manifest. Without `-Pgtfs` buildSeed
+  downloads the current GTFS as `<publication key>.zip`. The F-Droid recipe `scanignore`s the three
+  files, pointing at the manifest (its scanner flags them as binaries).
 - Android SDK is at `~/android-sdk` (`local.properties` has `sdk.dir`). Java/gradle work out of the box.
 - **No emulator/device is available in this sandbox** — you cannot run the app or screenshot it.
   Verify via unit tests + compile; the user installs the APK to eyeball UI.
@@ -83,14 +92,15 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   still readable). Bump the version on any layout change: an unreadable download falls back to the seed.
 - **Ride paths** (`:transit` `RideShapes`, format v3): the GTFS shapes are useless for drawing (all
   one point per stop), so every stop-to-stop **hop** has its street path from OSM, built by
-  `:transit:packRideShapes` (`tools/RideShapeBuilder` + `VehicleGraph`): bus graph / tram graph from the
+  `:transit:buildSeed` (`tools/RideShapeBuilder` + `VehicleGraph`): bus graph / tram graph from the
   Geofabrik extract, routed hop by hop with the lines' OSM route relations as a guide (relation ways
   1×, others 1.6×; a gap or a line without relation is bridged by routing; straight when a stop is
   > 80 m off the graph or the path is > 2.5 × crow-fly + 300 m; ferries straight). Keyed by **quay
   numbers** (stable across publications) and only the interior points are stored (the ends are the
-  current quays). `packSeed` and the on-device conversion **carry them over** (`RideShapes.carriedOver`):
-  a new GTFS keeps every hop it shares with the previous network (and the seed's, for a download made
-  by an older version - `loadBest`); a truly new hop is straight until the next `packRideShapes`.
+  current quays). The on-device conversion **carries them over** (`RideShapes.carriedOver`): a new
+  GTFS keeps every hop it shares with the previous network (and the seed's, for a download made by an
+  older version - `loadBest`); a truly new hop is straight until the next seed (`buildSeed` routes
+  every hop from scratch).
   `LocalItineraryRepository.rideGeometry` = `TransitNetwork.ridePath` (quays + hop paths). SOURCES.md §8.
 - Served lines (`NetworkIndex.servedLines`) come from patterns and are **terminus-aware** (a direction
   the stop only ends is omitted).
@@ -159,13 +169,13 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   ≤ 5 rides, service days D−1..D+1, trips can be excluded. ~5 ms/query on the real network.
 - Walking (real walks inside Nantes Métropole, straight lines outside): the
   **OSM walking graph** `assets/seed/walk_graph.bin` (`:transit` `walk/WalkGraph`, built by
-  `:transit:packWalkGraph` from the **Geofabrik Pays de la Loire extract** - never the live OSM API;
+  `:transit:buildSeed` from the **Geofabrik Pays de la Loire extract** - never the live OSM API;
   clipped to the métropole boundary relation `ref:FR:SIREN=244400404`, ways kept whole; pedestrian
   profile in `WalkGraphBuilder.isWalkable`; islands < 2 km dropped; 126 k vertices, 172 k edges,
   7,600 km, ~22 s to build). Undirected, 4 km/h on walked metres, **1 min to board** every vehicle.
   - **A, quay-to-quay** (`Footpaths`, in `network.bin` v2): street distance for
     quays ≤ 500 m crow-fly apart, kept when ≤ 650 m walked (~24.7 k directed pairs); off-graph quays
-    and ≤ 50 m pairs the graph can't join keep crow-fly × 1.3. Computed by `packSeed` and by the
+    and ≤ 50 m pairs the graph can't join keep crow-fly × 1.3. Computed by `buildSeed` and by the
     on-device conversion (the bundled graph); a network without them gets them at router build.
   - **C, points** (`LocalItineraryRepository`): an address is attached to its nearest ways
     (`snapAll`: every edge within 40 m of the closest, ≤ 6 - one nearest way alone can be a dead-end
@@ -229,7 +239,7 @@ timetable. Real time = SIRI + GTFS-RT only; only the plan-app **map tiles** are 
   numbered from `TransitNetwork.EXTERNAL_NUMBER_BASE` (9,000,000; bacs 9,900,000 + n, e.g.
   `FR_NAOLIB:StopPlace:9900003` Basse-Indre), frequencies expanded (end exclusive), calendar **clipped
   to the Naolib range**, a short name Naolib already uses becomes "Bac B1". The crosswalk skips those
-  landings. `packSeed` fetches the current zip and bundles it as `assets/seed/bacs_de_loire.zip`; the
+  landings. `buildSeed` fetches the current zip (or `-Pbacs`) and bundles it as `assets/seed/bacs_de_loire.zip`; the
   on-device conversion fetches it again and falls back to that copy.
 - Landings are never sent to SIRI (`TransitNetwork.isExternalQuay`): a bac-only stop's board is the
   timetable (not provisional), it registers no real-time interest.
@@ -383,4 +393,4 @@ Tests (`:transit`): `GtfsConverterTest`, `CrosswalkTest`, `RaptorTest`, `Realtim
 `LiveApiShapeDecodingTest`, `ErrorMessagesTest`, `ItineraryTimeShiftTest`,
 `JourneyShareTextTest`, `TimetableHourBlocksTest`, `StopDetailFavoritesTest`, `GtfsRtDisruptionRepositoryTest`,
 `DisruptionRelevanceTest`, `StreetWalkPlanningTest`, `JourneyMapModelTest`, `OptionLanesTest`, … (`:transit` also `ServiceAlertsTest`,
-`WalkGraphTest`, `BacsDeLoireTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).
+`WalkGraphTest`, `BacsDeLoireTest`, `GtfsPublicationTest`, `SeedManifestTest`) Live, opt-in: `LiveLocalVsPlanAppItineraryTest` (official planner as a reference only).

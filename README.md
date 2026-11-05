@@ -46,7 +46,7 @@ works offline except real time and address search.
 ```
 transit/                — pure-JVM core: GTFS converter, packed network format, RAPTOR router,
                           OSM walking graph, OSM ride paths, SIRI/GTFS-RT parsing, departure-board
-                          composition (+ `packSeed` / `packWalkGraph` / `packRideShapes` tasks)
+                          composition (+ `buildSeed` / `verifySeed` tasks)
 app/src/main/java/com/bustramnantes/app/
 ├── data/
 │   ├── local/          — Room (favorites, recent searches) + AppPreferencesDataStore + seeded map tiles
@@ -81,10 +81,18 @@ app/src/main/java/com/bustramnantes/app/
 ```bash
 ./gradlew :app:assembleDebug                     # -> app/build/outputs/apk/debug/app-<abi>-debug.apk (+ universal)
 ./gradlew :transit:test :app:testDebugUnitTest   # JVM unit tests
-./gradlew :transit:packSeed [-Pgtfs=/path.zip]   # regenerate assets/seed/network.bin
-./gradlew :transit:packWalkGraph -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf  # regenerate walk_graph.bin
-./gradlew :transit:packRideShapes -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf # add OSM ride paths to network.bin
+./gradlew :transit:buildSeed -Posm=/path/pays-de-la-loire-YYMMDD.osm.pbf [-Pgtfs=zip] [-Pbacs=zip]  # rebuild the seed + manifest
+./gradlew :transit:verifySeed                    # rebuild the seed from its archived inputs, check byte for byte
 ```
+
+The bundled seed (`app/src/main/assets/seed/`: timetable `network.bin`, OSM walking graph
+`walk_graph.bin`, bacs GTFS `bacs_de_loire.zip`) is compiled from open data by `buildSeed`, from
+scratch and deterministically. `transit/seed/seed-manifest.json` records every input (sha256, size,
+source, licence) and every output; the inputs themselves are archived on the GitHub release it names
+(`seed-<hash of the inputs>`), since the GTFS portal keeps only the current publication and
+Geofabrik's dated extracts don't stay online. After a `buildSeed`, upload the files it lists from
+`build/seed-inputs/` to that release (names unchanged) and commit the seed with its manifest -
+`SeedManifestTest` fails when the committed files and the manifest disagree.
 
 No API keys or `local.properties` secrets are required beyond `sdk.dir`: every network call is to a
 public, keyless endpoint.

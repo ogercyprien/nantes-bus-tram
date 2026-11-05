@@ -7,7 +7,7 @@ import java.util.zip.Inflater
 
 /**
  * A minimal streaming reader for OpenStreetMap `.osm.pbf` extracts (Geofabrik), build-time only
- * (`./gradlew :transit:packWalkGraph`). Hand-written like the GTFS-RT decoder so `:transit` keeps no
+ * (`./gradlew :transit:buildSeed`). Hand-written like the GTFS-RT decoder so `:transit` keeps no
  * protobuf dependency. Reads only what the walking-graph builder needs: dense nodes (id, lat, lon),
  * ways (id, tags, node refs) and relations (id, tags, members). Plain (non-dense) nodes are read too.
  *

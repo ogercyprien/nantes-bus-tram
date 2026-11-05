@@ -9,7 +9,7 @@ import kotlin.math.sqrt
 
 /**
  * The pedestrian street network of Nantes Métropole, from OpenStreetMap (Geofabrik extract, built by
- * `./gradlew :transit:packWalkGraph`, shipped as `assets/seed/walk_graph.bin`, see [WalkGraphFormat]).
+ * `./gradlew :transit:buildSeed`, shipped as `assets/seed/walk_graph.bin`, see [WalkGraphFormat]).
  *
  * Vertices are way junctions and dead ends; an edge is the stretch of one way between two vertices,
  * with its walked length in metres and its intermediate shape points (simplified to ~2 m) for

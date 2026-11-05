@@ -1,0 +1,58 @@
+{
+    "about": "The bundled seed files are compiled from these inputs by `./gradlew :transit:buildSeed` (transit/src/main/kotlin/com/bustramnantes/transit/tools/SeedBuild.kt); `./gradlew :transit:verifySeed` downloads the archived inputs, rebuilds and checks every output byte for byte.",
+    "archive": "https://github.com/ogercyprien/nantes-bus-tram/releases/tag/seed-645acb2eb569",
+    "archiveDownload": "https://github.com/ogercyprien/nantes-bus-tram/releases/download/seed-645acb2eb569/",
+    "feedId": "0cc0469a72de54ee045cb66d1a21de9e",
+    "networkValidity": "2026-10-09..2027-01-09",
+    "inputs": [
+        {
+            "role": "gtfs",
+            "file": "0cc0469a72de54ee045cb66d1a21de9e.zip",
+            "sha256": "ab9ae9a8b5eeacb6d83434ed481b9d020c1337c476a02d9b7c2eee8f035917a8",
+            "size": 26084691,
+            "archived": true,
+            "source": "data.nantesmetropole.fr dataset 244400404_transports_commun_naolib_nantes_metropole_gtfs (Nantes Métropole / Naolib, Licence Ouverte v2.0); the file name is its feed id"
+        },
+        {
+            "role": "bacs",
+            "file": "gtfs_bac_loire2026.zip",
+            "sha256": "7c095833b3bfb80fcafe1a176a7e749f782c979735227b662be9d4146b0bf9ad",
+            "size": 3979,
+            "archived": true,
+            "source": "data.loire-atlantique.fr dataset 224400028_horaires-bacs-loire-en-loire-atlantique-gtfs (Département de Loire-Atlantique, Licence Ouverte v2.0)"
+        },
+        {
+            "role": "osm",
+            "file": "pays-de-la-loire-261011.osm.pbf",
+            "sha256": "e46e42af1d35d20bd8d9521b1f155546129e9e5f8318030cad4fbd13c4926f08",
+            "size": 373121918,
+            "archived": true,
+            "source": "Geofabrik extract https://download.geofabrik.de/europe/france/pays-de-la-loire.html (© OpenStreetMap contributors, ODbL 1.0)"
+        },
+        {
+            "role": "stops",
+            "file": "transit/seed/logical_stops.geojson",
+            "sha256": "7650c53ae901eb9a4a450ecf17aaf8e13c0b0e337a7e38d9f9910117a851187f",
+            "size": 399797,
+            "archived": false,
+            "source": "official Naolib map stop list (plan-app.naolib.fr), in this repository - display positions only"
+        }
+    ],
+    "outputs": [
+        {
+            "file": "app/src/main/assets/seed/walk_graph.bin",
+            "sha256": "f8f47b8cb09ed0019a230b7b72b337c2d6aa53a0108992112372c8345654f901",
+            "size": 1171888
+        },
+        {
+            "file": "app/src/main/assets/seed/network.bin",
+            "sha256": "3b4ec65f2874f316529f9f6587bac7d9fe444a95dbef4675c3ff57f7b4d38d2c",
+            "size": 485110
+        },
+        {
+            "file": "app/src/main/assets/seed/bacs_de_loire.zip",
+            "sha256": "7c095833b3bfb80fcafe1a176a7e749f782c979735227b662be9d4146b0bf9ad",
+            "size": 3979
+        }
+    ]
+}

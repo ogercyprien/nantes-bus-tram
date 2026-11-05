@@ -10,10 +10,11 @@ import kotlin.math.sqrt
 
 /**
  * Builds the [RideShapes] of a network - the street path of every stop-to-stop hop - from the same
- * Geofabrik `.osm.pbf` extract as the walking graph. Build-time only (`:transit:packRideShapes`).
+ * Geofabrik `.osm.pbf` extract as the walking graph. Build-time only (`:transit:buildSeed`).
  *
  *  - **bus graph**: roads a bus may use ([isBusWay]: incl. `highway=busway`, bus/psv-only roads), plus
  *    any way a Naolib bus route relation lists; one-way unless `oneway:bus|psv=no` ([busOneway]);
+ *    roads with `construction=minor` (open during works) and streets with tram tracks in them count;
  *  - **tram graph**: `railway=tram|light_rail`, both ways;
  *  - ferries (Navibus, bacs): no entry - drawn straight, which is what they do.
  *
@@ -31,6 +32,8 @@ object RideShapeBuilder {
     private const val MAX_DETOUR_RATIO = 2.5
     private const val MAX_DETOUR_SLACK_M = 300.0
     private const val SIMPLIFY_M = 1.5
+    /** Relation member roles that are the route's ways ("route": 75's busway at Boisbonne). */
+    private val RELATION_WAY_ROLES = setOf("", "forward", "backward", "route")
 
     // Box around the métropole, as in WalkGraphBuilder.
     private const val BOX_LAT_MIN = 46.95
@@ -49,7 +52,9 @@ object RideShapeBuilder {
         val hw = t["highway"] ?: return false
         val busOk = t["bus"] in ALLOWED || t["psv"] in ALLOWED
         if (hw !in BUS_HIGHWAYS && !((hw == "pedestrian" || hw == "cycleway" || hw == "footway") && busOk)) return false
-        if (t["area"] == "yes" || hw == "construction" || t["construction"] != null) return false
+        // `construction=minor`: works on a road that stays open (Bd Victor Hugo at Mangin, autumn 2026:
+        // without it 3B had no path from Mangin to Pirmil). Any other construction value: closed.
+        if (t["area"] == "yes" || hw == "construction" || (t["construction"] != null && t["construction"] != "minor")) return false
         val access = t["access"] ?: t["motor_vehicle"] ?: t["vehicle"]
         if ((access == "no" || access == "private") && !busOk) return false
         if ((t["bus"] == "no" || t["psv"] == "no") && t["bus"] !in ALLOWED) return false
@@ -91,7 +96,8 @@ object RideShapeBuilder {
                 val ref = tags["ref"] ?: return
                 val set = relationWays.getOrPut(ref) { HashSet() }
                 for (i in memberIds.indices) {
-                    if (memberTypes[i] == 1 && (roles[i].isEmpty() || roles[i] == "forward" || roles[i] == "backward")) set += memberIds[i]
+                    // "route" is used by some members too (75's busway at Boisbonne); stops and platforms aren't ways.
+                    if (memberTypes[i] == 1 && roles[i] in RELATION_WAY_ROLES) set += memberIds[i]
                 }
             }
         })
@@ -116,17 +122,19 @@ object RideShapeBuilder {
             override fun way(id: Long, tags: Map<String, String>, refs: LongArray) {
                 val tram = isTramWay(tags)
                 // A way a route relation lists is taken even if the profile says no: the relation knows.
-                val bus = !tram && (isBusWay(tags) || (id in allRelationWays && tags["highway"] != null))
+                // A street with tram tracks in it (`highway=*` + `railway=tram`) is in both graphs: buses
+                // drive it too (Rue des Renards, 96 between Boissière and Santos Dumont).
+                val bus = isBusWay(tags) || (id in allRelationWays && tags["highway"] != null)
                 if (!tram && !bus) return
-                val ow = if (bus) busOneway(tags) else 0
                 for (run in insideRuns(refs, nodes)) {
-                    val w = VehicleGraph.Way(
+                    fun way(ow: Int) = VehicleGraph.Way(
                         id, LongArray(run.size) { refs[run[it]] },
                         DoubleArray(run.size) { nodes.lat(nodes.indexOf(refs[run[it]])) / 1e7 },
                         DoubleArray(run.size) { nodes.lon(nodes.indexOf(refs[run[it]])) / 1e7 },
                         forward = ow >= 0, backward = ow <= 0,
                     )
-                    if (tram) tramWays += w else busWays += w
+                    if (tram) tramWays += way(0)
+                    if (bus) busWays += way(busOneway(tags))
                 }
             }
         })

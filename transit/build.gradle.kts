@@ -5,7 +5,7 @@ plugins {
 /*
  * Pure-JVM transit core (no Android dependency): GTFS parsing, the packed network format, the
  * in-memory TransitNetwork, the RAPTOR router and departure-board composition. Pure JVM so that
- *  - the very same converter runs at build time (`./gradlew :transit:packSeed`, which writes the
+ *  - the very same converter runs at build time (`./gradlew :transit:buildSeed`, which writes the
  *    bundled `app/src/main/assets/seed/network.bin`) and on the device (daily GTFS refresh), and
  *  - all of it is unit-testable on the JVM without an emulator.
  */
@@ -22,7 +22,7 @@ kotlin {
 }
 
 dependencies {
-    // Only the seed tool (tools/PackSeed.kt) parses JSON; the runtime core is dependency-free.
+    // Only the seed tool (tools/SeedBuild.kt) parses JSON; the runtime core is dependency-free.
     implementation(libs.kotlinx.serialization.json)
     // SIRI XML is parsed through the XmlPullParser API, which Android provides at runtime
     // (android.util.Xml); kxml2 supplies the same API and an implementation for JVM compile/tests.
@@ -40,40 +40,35 @@ tasks.register<JavaExec>("convertBenchmark") {
     maxHeapSize = (providers.gradleProperty("heap").getOrElse("512m"))
 }
 
-tasks.register<JavaExec>("packSeed") {
-    group = "transit"
-    description = "Regenerates app/src/main/assets/seed/network.bin from the current GTFS (or -Pgtfs=zip)."
-    classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.bustramnantes.transit.tools.PackSeedKt")
-    args(
-        rootProject.file("app/src/main/assets/seed/network.bin").path,
-        file("seed/logical_stops.geojson").path,
-        providers.gradleProperty("gtfs").getOrElse(""),
-        rootProject.file("app/src/main/assets/seed/walk_graph.bin").path,
-    )
-    maxHeapSize = "1g"
-}
+// Seed data (app/src/main/assets/seed/{walk_graph.bin, network.bin, bacs_de_loire.zip}): compiled from
+// open data and recorded in seed/seed-manifest.json - see tools/SeedBuild.kt.
+val seedRepo = "https://github.com/ogercyprien/nantes-bus-tram"
 
-tasks.register<JavaExec>("packRideShapes") {
+tasks.register<JavaExec>("buildSeed") {
     group = "transit"
-    description = "Adds OSM street paths for every ride hop to app/src/main/assets/seed/network.bin (-Posm=/path.osm.pbf)."
+    description = "Rebuilds the bundled seed from scratch and its manifest (-Posm=extract.osm.pbf [-Pgtfs=zip] [-Pbacs=zip])."
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.bustramnantes.transit.tools.PackRideShapesKt")
+    mainClass.set("com.bustramnantes.transit.tools.SeedBuildKt")
     args(
-        rootProject.file("app/src/main/assets/seed/network.bin").path,
-        providers.gradleProperty("osm").getOrElse(""),
+        "build",
+        "root=${rootDir.path}",
+        "repo=$seedRepo",
+        "osm=${providers.gradleProperty("osm").getOrElse("")}",
+        "gtfs=${providers.gradleProperty("gtfs").getOrElse("")}",
+        "bacs=${providers.gradleProperty("bacs").getOrElse("")}",
     )
     maxHeapSize = "3g"
 }
 
-tasks.register<JavaExec>("packWalkGraph") {
+tasks.register<JavaExec>("verifySeed") {
     group = "transit"
-    description = "Regenerates app/src/main/assets/seed/walk_graph.bin from a Geofabrik extract (-Posm=/path.osm.pbf)."
+    description = "Rebuilds the seed from the archived inputs of seed/seed-manifest.json and checks it byte for byte."
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.bustramnantes.transit.tools.PackWalkGraphKt")
+    mainClass.set("com.bustramnantes.transit.tools.SeedBuildKt")
     args(
-        rootProject.file("app/src/main/assets/seed/walk_graph.bin").path,
-        providers.gradleProperty("osm").getOrElse(""),
+        "verify",
+        "root=${rootDir.path}",
+        "inputs=${providers.gradleProperty("seedInputs").getOrElse("")}",
     )
     maxHeapSize = "3g"
 }

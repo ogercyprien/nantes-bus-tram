@@ -43,7 +43,7 @@ import javax.inject.Singleton
  * Owns the static transit network (the whole GTFS timetable, packed - see `:transit`).
  *
  * **Offline-first.** Two candidates are loaded at startup: the bundled seed `assets/seed/network.bin`
- * (regenerated with `./gradlew :transit:packSeed`) and the last network installed by [refresh]
+ * (regenerated with `./gradlew :transit:buildSeed`) and the last network installed by [refresh]
  * (`filesDir/network/<key>.bin`, named by a pointer file - key = [GtfsFeed.key]). The one valid **longest** wins, so an app
  * update shipping a newer seed overrides an older download and vice versa - no seed version number to
  * maintain. Everything (map, search, stop sheet, timetables, itineraries) works from first launch with

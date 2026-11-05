@@ -7,7 +7,7 @@ import java.util.Arrays
  * network - what a ride is drawn along. The GTFS shapes are no use for that: Naolib publishes one
  * point per stop, so a ride drawn from them cuts through buildings.
  *
- * Built at seed time from OpenStreetMap (`./gradlew :transit:packRideShapes`, see
+ * Built at seed time from OpenStreetMap (`./gradlew :transit:buildSeed`, see
  * `tools/RideShapeBuilder`) and stored in [NetworkFormat] v3.
  *
  * Keyed by the **quay numbers** of the two stops (`FR_NAOLIB:Quay:<n>`, stable across GTFS
