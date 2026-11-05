@@ -9,11 +9,8 @@ package com.bustramnantes.app.domain.model
  * departures, served lines and timetables use all of their quays, and a favorite saved on any member
  * belongs to this stop.
  *
- * [lat]/[lon] are the display position: the official map's position when the crosswalk knows it (the
- * raster line tiles are drawn against those), else the GTFS one.
- *
- * [aliases] are extra search keys (former names). Empty today - the hook stays for a future rename
- * that riders see before the open data carries it.
+ * [lat]/[lon] are the GTFS StopPlace position. The Plan tab draws its marker on the lines instead
+ * (the line map's own marker, near the quays), except for a stop no drawn line serves.
  */
 data class Stop(
     val id: String,
@@ -22,6 +19,5 @@ data class Stop(
     val lon: Double,
     val linkedLines: List<String>,
     val accessible: Boolean,
-    val aliases: List<String> = emptyList(),
     val memberIds: List<String> = listOf(id),
 )

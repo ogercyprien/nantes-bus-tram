@@ -22,9 +22,9 @@ import org.maplibre.android.module.http.HttpRequestUtil
  *  - [BackgroundWorkScheduler.schedule] - enqueues the daily cache-refresh
  *    task and the widget-refresh chain. Both underlying WorkManager requests use `KEEP` policies,
  *    so re-running `onCreate` (e.g. process restarts) never duplicates work.
- *  - [HttpRequestUtil.setOkHttpClient] - routes ALL of MapLibre's HTTP through our client so the
- *    bundled line-raster seed is served offline/instantly (via its interceptor) and map tiles are
- *    disk-cached. Set once here, before any `MapView` is created (MapLibre reads it lazily).
+ *  - [HttpRequestUtil.setOkHttpClient] - routes MapLibre's HTTP (the OSM basemap) through our client
+ *    so tiles are disk-cached. Set once here, before any `MapView` is created (MapLibre reads it
+ *    lazily). The lines, stop markers and fonts are local and never go through HTTP.
  *  - [FavoriteRekeyer.run] - moves favorites whose StopPlace a new GTFS publication retired.
  *  - [LineMapRepository] is created here so it starts watching the network at once: after a GTFS
  *    refresh it rebuilds the line map in the background, whether or not the Plan tab is open.
@@ -56,12 +56,10 @@ class BusEtTramApplication : Application() {
         // MapLibre.getInstance() has not run yet (else the app crashes here at launch, before any
         // screen). getInstance is idempotent, so the MapView's later getInstance is a no-op.
         MapLibre.getInstance(this)
-        // Force MapLibre to always ATTEMPT tile requests. By default it auto-detects connectivity and,
-        // when offline (e.g. airplane mode), short-circuits requests BEFORE they reach the OkHttp
-        // stack - so our SeedTileInterceptor never runs and the bundled offline line tiles never show.
-        // With this override every request reaches OkHttp: the interceptor serves seeded tiles offline,
-        // and genuinely-remote tiles (basemap, un-seeded zooms) just fail fast as they would anyway.
-        MapLibre.setConnected(true)
+        // No MapLibre.setConnected(true) any more: it only existed so offline requests still reached
+        // OkHttp, where an interceptor served the bundled official line tiles. Our lines are GeoJSON
+        // sources and the fonts asset:// files, which MapLibre reads whatever the connectivity; the
+        // basemap offline comes from MapLibre's own ambient cache, as on any MapLibre app.
         HttpRequestUtil.setOkHttpClient(mapTileClient)
         // Favorites/recent searches on a StopPlace the network no longer has -> its successor (usually a no-op).
         appScope.launch { runCatching { favoriteRekeyer.run() } }

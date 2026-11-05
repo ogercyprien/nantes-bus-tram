@@ -42,11 +42,9 @@ class Route(
  * A GTFS StopPlace (`location_type=1`) - the rider-facing "stop" the map shows. [number] is the
  * numeric suffix of `FR_NAOLIB:StopPlace:<n>` (see [stopPlaceId]).
  *
- * [lat]/[lon] are the **display** coordinates: the official map's position when the seed [Crosswalk]
- * matched this stop (the raster line tiles are drawn against those), else the GTFS position.
- *
- * [aliases] are extra search keys (former names) - an empty list today, kept as a hook for a future
- * rename that reaches the riders before the GTFS.
+ * [lat]/[lon] are the GTFS position. (Until 2026-11 they were the official map's position where a
+ * seed-time crosswalk matched the stop, because the official raster lines were drawn against those;
+ * the map now draws its own lines, with markers on them, from the quays' positions.)
  */
 class StopPlace(
     val number: Int,
@@ -55,9 +53,6 @@ class StopPlace(
     val lon: Double,
     val wheelchair: Boolean,
     val quays: IntArray,
-    val aliases: List<String>,
-    /** [lat]/[lon] come from the crosswalk (official map position), not from the GTFS. */
-    val hasDisplayPosition: Boolean = false,
 ) {
     val id: String get() = TransitNetwork.stopPlaceId(number)
 }
@@ -259,3 +254,19 @@ class TransitNetwork(
             lineRef.removePrefix(ROUTE_ID_PREFIX).removeSuffix(":LOC")
     }
 }
+
+/** This network with [footpaths] (null = crow-fly fallback in the router). */
+fun TransitNetwork.withFootpaths(footpaths: Footpaths?): TransitNetwork = TransitNetwork(
+    formatVersion, feedId, validFrom, dayCount, timezone, routes, stopPlaces,
+    quayNumber, quayStopPlace, quayLat, quayLon, patterns,
+    tripPattern, tripStart, tripProfile, tripServiceSet, tripHeadsign, headsigns,
+    profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths, rideShapes,
+)
+
+/** This network with [rideShapes] (null = rides drawn stop to stop). */
+fun TransitNetwork.withRideShapes(rideShapes: RideShapes?): TransitNetwork = TransitNetwork(
+    formatVersion, feedId, validFrom, dayCount, timezone, routes, stopPlaces,
+    quayNumber, quayStopPlace, quayLat, quayLon, patterns,
+    tripPattern, tripStart, tripProfile, tripServiceSet, tripHeadsign, headsigns,
+    profileArrivals, profileDepartures, serviceSets, vjNumbers, vjTrips, shapes, footpaths, rideShapes,
+)

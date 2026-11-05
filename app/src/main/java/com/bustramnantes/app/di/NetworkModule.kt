@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import com.bustramnantes.app.data.remote.GeocodingApiService
 import com.bustramnantes.app.data.remote.opendata.OpenDataApiService
-import com.bustramnantes.app.data.local.MbTilesTileStore
-import com.bustramnantes.app.data.remote.interceptor.SeedTileInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,8 +43,8 @@ private const val HTTP_CACHE_SIZE_BYTES = 15L * 1024 * 1024
 
 /**
  * On-disk cache for the MapLibre client. Larger than [HTTP_CACHE_SIZE_BYTES] because it holds map
- * imagery (basemap tiles, un-seeded/high-zoom line-raster tiles, vector tiles, glyphs) rather than
- * small JSON payloads, so tiles seen once keep loading offline and instantly on later views.
+ * imagery (OSM basemap tiles) rather than small JSON payloads, so tiles seen once load instantly on
+ * later views.
  */
 private const val MAP_TILE_CACHE_SIZE_BYTES = 50L * 1024 * 1024
 
@@ -74,9 +72,9 @@ annotation class GeocodingRetrofit
 
 /**
  * Qualifies the [OkHttpClient] handed to MapLibre (via `HttpRequestUtil.setOkHttpClient` in the
- * Application). It carries the [SeedTileInterceptor] (serves bundled line tiles offline/instantly)
- * plus an on-disk tile cache; it is a bare client, not a Retrofit instance, since MapLibre drives
- * its own HTTP.
+ * Application): standard timeouts and an on-disk tile cache. A bare client, not a Retrofit instance,
+ * since MapLibre drives its own HTTP. Only the OSM basemap goes through it: the lines, stop markers
+ * and label fonts are local (GeoJSON from our line map, `asset://` glyphs).
  */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -88,7 +86,7 @@ annotation class MapTileClient
  * - **Open data** ([OpenDataApiService], `data.nantesmetropole.fr`): the GTFS publication (records
  *   API + zip download).
  * - **Okina** (bare [OkHttpClient], `api.okina.fr`): real-time SIRI StopMonitoring + GTFS-RT.
- * - **Map tiles** ([MapTileClient]): line rasters/vector tiles from `plan-app.naolib.fr`, basemap.
+ * - **Map tiles** ([MapTileClient]): the OSM basemap.
  * - **Geocoding** ([GeocodingApiService], `data.geopf.fr`): address search.
  *
  * The Retrofit services share one [Json] instance (`ignoreUnknownKeys = true`, so additive or
@@ -178,22 +176,14 @@ object NetworkModule {
     fun provideOpenDataApiService(@OpenDataRetrofit retrofit: Retrofit): OpenDataApiService =
         retrofit.create(OpenDataApiService::class.java)
 
-    /**
-     * The client MapLibre uses for every map HTTP request. [SeedTileInterceptor] short-circuits
-     * bundled line-raster tiles (instant/offline); everything else (basemap, high-zoom tiles,
-     * vector tiles, glyphs, TileJSON) goes to the network and is retained by the on-disk cache.
-     */
+    /** The client MapLibre uses for every map HTTP request (the OSM basemap), with its disk cache. */
     @Provides
     @Singleton
     @MapTileClient
-    fun provideMapTileOkHttpClient(
-        @ApplicationContext context: Context,
-        tileStore: MbTilesTileStore,
-    ): OkHttpClient =
+    fun provideMapTileOkHttpClient(@ApplicationContext context: Context): OkHttpClient =
         OkHttpClient.Builder()
             .withStandardTimeouts()
             .cache(Cache(File(context.cacheDir, "http_cache_map"), MAP_TILE_CACHE_SIZE_BYTES))
-            .addInterceptor(SeedTileInterceptor(tileStore))
             // No logging interceptor here on purpose: responses are binary tile imagery, and
             // BODY-level logging would flood logcat with megabytes of PNG bytes per map pan.
             .build()

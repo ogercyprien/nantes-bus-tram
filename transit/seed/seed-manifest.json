@@ -28,14 +28,6 @@
             "size": 373121918,
             "archived": true,
             "source": "Geofabrik extract https://download.geofabrik.de/europe/france/pays-de-la-loire.html (© OpenStreetMap contributors, ODbL 1.0)"
-        },
-        {
-            "role": "stops",
-            "file": "transit/seed/logical_stops.geojson",
-            "sha256": "7650c53ae901eb9a4a450ecf17aaf8e13c0b0e337a7e38d9f9910117a851187f",
-            "size": 399797,
-            "archived": false,
-            "source": "official Naolib map stop list (plan-app.naolib.fr), in this repository - display positions only"
         }
     ],
     "outputs": [
@@ -46,8 +38,8 @@
         },
         {
             "file": "app/src/main/assets/seed/network.bin",
-            "sha256": "35632821297b3b9a26d428735a96b83443ea1a80cb8dde7075bce01aa91a7f58",
-            "size": 485472
+            "sha256": "ad577a81d860bbeefd8344d8925ba7ae3b0c25aac49e122c48d0f85c47089659",
+            "size": 484669
         },
         {
             "file": "app/src/main/assets/seed/bacs_de_loire.zip",

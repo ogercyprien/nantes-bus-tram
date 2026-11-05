@@ -41,17 +41,6 @@ fun interface GtfsSource {
 }
 
 /**
- * Display-position overlay for one StopPlace, built at seed time by [Crosswalk] and carried in the
- * packed file so an on-device re-conversion keeps it (StopPlace ids are stable across publications).
- */
-data class CrosswalkEntry(
-    /** Display coordinates override (official map position), or null to keep the GTFS one. */
-    val lat: Double?,
-    val lon: Double?,
-    val aliases: List<String> = emptyList(),
-)
-
-/**
  * GTFS zip -> [TransitNetwork]. Streams every file - `stop_times.txt` is ~583 MB uncompressed and is
  * never materialised: each trip's rows are de-duplicated as soon as the next trip starts (the Naolib
  * file is grouped by trip; if a feed isn't, the conversion transparently restarts in a buffered mode).
@@ -65,7 +54,6 @@ data class CrosswalkEntry(
 class GtfsConverter(
     private val source: GtfsSource,
     private val feedId: String = "",
-    private val crosswalk: Map<Int, CrosswalkEntry> = emptyMap(),
 ) {
 
     fun convert(): TransitNetwork {
@@ -464,20 +452,17 @@ class GtfsConverter(
         }
         val sortedPairs = pairs.toLongArray().also { it.sort() }
 
-        // StopPlaces with their quays, overlaid with the crosswalk.
+        // StopPlaces with their quays.
         val placeQuays = Array(stops.places.size) { IntList() }
         stops.quayParent.forEachIndexed { q, p -> placeQuays[p] += q }
         val stopPlaces = stops.places.mapIndexed { i, raw ->
-            val cw = crosswalk[raw.number]
             StopPlace(
                 number = raw.number,
                 name = raw.name,
-                lat = cw?.lat ?: raw.lat,
-                lon = cw?.lon ?: raw.lon,
+                lat = raw.lat,
+                lon = raw.lon,
                 wheelchair = raw.wheelchair,
                 quays = placeQuays[i].toArray(),
-                aliases = cw?.aliases.orEmpty(),
-                hasDisplayPosition = cw?.lat != null,
             )
         }
 

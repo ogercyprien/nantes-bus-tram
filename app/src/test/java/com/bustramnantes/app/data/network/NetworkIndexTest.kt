@@ -1,11 +1,8 @@
 package com.bustramnantes.app.data.network
 
 import com.bustramnantes.app.domain.model.TransportMode
-import com.bustramnantes.transit.Crosswalk
-import com.bustramnantes.transit.OfficialStop
 import com.bustramnantes.transit.gtfs.GtfsConverter
 import com.bustramnantes.transit.gtfs.GtfsSource
-import com.bustramnantes.transit.withCrosswalk
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -20,9 +17,7 @@ import java.io.File
 class NetworkIndexTest {
 
     private val raw = GtfsConverter(GtfsSource.directory(File("../transit/src/test/resources/gtfs-mini"))).convert()
-    private val index = NetworkIndex(
-        raw.withCrosswalk(Crosswalk.build(raw, listOf(OfficialStop("57116", "Alpha", 47.2, -1.56, setOf("T1"))))),
-    )
+    private val index = NetworkIndex(raw)
 
     @Test
     fun `lines carry GTFS ids, colours without hash and both directions`() {

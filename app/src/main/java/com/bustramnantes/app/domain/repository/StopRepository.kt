@@ -5,8 +5,9 @@ import com.bustramnantes.app.domain.model.Stop
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Local-first access to the stop cache built from `logical_stops.geojson`.
- * Stop search never hits the network directly - it reads from the Room cache maintained here.
+ * The rider-facing stops of the static network in use (GTFS StopPlaces, same-name neighbours merged),
+ * read from the bundled or downloaded network: offline from the first launch. Stop search never hits
+ * the network directly.
  */
 interface StopRepository {
 

@@ -7,8 +7,6 @@ import com.bustramnantes.app.domain.model.DepartureSource
 import com.bustramnantes.app.domain.model.Direction
 import com.bustramnantes.app.domain.model.TransportMode
 import com.bustramnantes.app.domain.repository.RealtimePriority
-import com.bustramnantes.transit.Crosswalk
-import com.bustramnantes.transit.OfficialStop
 import com.bustramnantes.transit.gtfs.GtfsConverter
 import com.bustramnantes.transit.gtfs.BacsDeLoire
 import com.bustramnantes.transit.gtfs.GtfsSource
@@ -17,7 +15,6 @@ import com.bustramnantes.transit.realtime.SiriVisit
 import com.bustramnantes.transit.realtime.StopTimePrediction
 import com.bustramnantes.transit.realtime.TripUpdate
 import com.bustramnantes.transit.realtime.TripUpdatesFeed
-import com.bustramnantes.transit.withCrosswalk
 import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -40,9 +37,7 @@ import org.junit.Test
 class RealtimeGatewayTest {
 
     private val raw = GtfsConverter(GtfsSource.directory(File("../transit/src/test/resources/gtfs-mini"))).convert()
-    private val index = NetworkIndex(
-        raw.withCrosswalk(Crosswalk.build(raw, listOf(OfficialStop("57116", "Alpha", 47.2, -1.56, setOf("T1"))))),
-    )
+    private val index = NetworkIndex(raw)
     private val zone = ZoneId.of("Europe/Paris")
     private val t0 = LocalDateTime.of(2026, 10, 13, 7, 55).atZone(zone).toEpochSecond() * 1000
     private fun at(h: Int, m: Int, s: Int = 0) = LocalDateTime.of(2026, 10, 13, h, m, s).atZone(zone).toEpochSecond()

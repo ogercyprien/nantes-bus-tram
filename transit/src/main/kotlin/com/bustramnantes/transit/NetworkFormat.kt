@@ -30,10 +30,14 @@ import kotlin.math.roundToInt
  * (a boolean, then the hop count; per hop the from/to quay numbers - from delta-encoded, hops being
  * sorted - and its interior points delta-encoded in micro-degrees, continuing from the previous
  * hop's last point - see [RideShapes]). Versions 1 and 2 are still read (rides drawn stop to stop).
+ * **4** = StopPlaces without the display-position flag and the alias list: the official map's stop
+ * positions (the seed-time crosswalk) are gone, every position is the GTFS one. Versions 1 to 3 are
+ * still read, the two fields skipped (their positions may be the official ones until the next
+ * refresh: they only place the few stop dots off the line map and sort search by distance).
  */
 object NetworkFormat {
-    const val VERSION = 3
-    private val READABLE = setOf(1, 2, 3)
+    const val VERSION = 4
+    private val READABLE = setOf(1, 2, 3, 4)
     private val MAGIC = "NAOLNETW".toByteArray(Charsets.US_ASCII)
 
     fun write(network: TransitNetwork, out: OutputStream) {
@@ -61,8 +65,7 @@ object NetworkFormat {
                 d.varint(sp.number); d.writeUTF(sp.name)
                 val la = micro(sp.lat); val lo = micro(sp.lon)
                 d.zigzag(la - pLat); d.zigzag(lo - pLon); pLat = la; pLon = lo
-                d.writeBoolean(sp.wheelchair); d.writeBoolean(sp.hasDisplayPosition)
-                d.varint(sp.aliases.size); sp.aliases.forEach(d::writeUTF)
+                d.writeBoolean(sp.wheelchair)
             }
 
             d.varint(quayCount)
@@ -169,14 +172,17 @@ object NetworkFormat {
             Route(short, long, color, text, mode, sort, arrayOf(d.nullableUtf(), d.nullableUtf()))
         }
 
-        class RawPlace(val number: Int, val name: String, val lat: Double, val lon: Double, val wheelchair: Boolean, val aliases: List<String>, val display: Boolean)
+        class RawPlace(val number: Int, val name: String, val lat: Double, val lon: Double, val wheelchair: Boolean)
         var pLat = 0; var pLon = 0
         val places = List(d.varint()) {
             val number = d.varint(); val name = d.readUTF()
             pLat += d.zigzag(); pLon += d.zigzag()
-            val wheelchair = d.readBoolean(); val display = d.readBoolean()
-            val aliases = List(d.varint()) { d.readUTF() }
-            RawPlace(number, name, pLat / 1e6, pLon / 1e6, wheelchair, aliases, display)
+            val wheelchair = d.readBoolean()
+            if (version < 4) {
+                d.readBoolean() // display position flag
+                repeat(d.varint()) { d.readUTF() } // aliases
+            }
+            RawPlace(number, name, pLat / 1e6, pLon / 1e6, wheelchair)
         }
 
         val quayCount = d.varint()
@@ -191,7 +197,7 @@ object NetworkFormat {
         val placeQuays = Array(places.size) { ArrayList<Int>() }
         for (q in 0 until quayCount) placeQuays[quayParent[q]] += q
         val stopPlaces = places.mapIndexed { i, p ->
-            StopPlace(p.number, p.name, p.lat, p.lon, p.wheelchair, placeQuays[i].toIntArray(), p.aliases, p.display)
+            StopPlace(p.number, p.name, p.lat, p.lon, p.wheelchair, placeQuays[i].toIntArray())
         }
 
         val headsigns = Array(d.varint()) { d.readUTF() }

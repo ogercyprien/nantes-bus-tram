@@ -1,8 +1,6 @@
 package com.bustramnantes.transit.tools
 
-import com.bustramnantes.transit.Crosswalk
 import com.bustramnantes.transit.NetworkFormat
-import com.bustramnantes.transit.OfficialStop
 import com.bustramnantes.transit.RideShapes
 import com.bustramnantes.transit.gtfs.BacsDeLoire
 import com.bustramnantes.transit.gtfs.GtfsConverter
@@ -14,16 +12,13 @@ import com.bustramnantes.transit.lines.LineMapFormat
 import com.bustramnantes.transit.lines.LineMapSet
 import com.bustramnantes.transit.walk.Footpaths
 import com.bustramnantes.transit.walk.WalkGraphFormat
-import com.bustramnantes.transit.withCrosswalk
 import com.bustramnantes.transit.withFootpaths
 import com.bustramnantes.transit.withRideShapes
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -49,8 +44,7 @@ import java.security.MessageDigest
  *
  * Pipeline (the order matters - each step reads the previous one's output back from its file):
  * OSM extract -> walking graph ([WalkGraphBuilder]); GTFS + bacs ([BacsDeLoire]) -> network
- * ([GtfsConverter]) with the display-position [Crosswalk] (`transit/seed/logical_stops.geojson`) and
- * the quay-to-quay [Footpaths] on that graph; OSM extract -> street path of every ride hop
+ * ([GtfsConverter]) with the quay-to-quay [Footpaths] on that graph; OSM extract -> street path of every ride hop
  * ([RideShapeBuilder]); network with its ride paths -> the line map's layouts ([LineMapSet], drawn by
  * the Plan tab). Nothing is carried over from a previous seed, so the output depends on the
  * inputs alone. The walking graph embeds the extract's file name, the network the GTFS file name
@@ -69,7 +63,6 @@ fun main(args: Array<String>) {
 
 private class SeedLayout(val root: File) {
     val assets = File(root, "app/src/main/assets/seed")
-    val stops = File(root, "transit/seed/logical_stops.geojson")
     val manifest = File(root, "transit/seed/seed-manifest.json")
     val inputs = File(root, "build/seed-inputs")
     fun relative(f: File): String = f.relativeTo(root).invariantSeparatorsPath
@@ -87,10 +80,9 @@ private const val BACS_SOURCE = "data.loire-atlantique.fr dataset 224400028_hora
     "(Département de Loire-Atlantique, Licence Ouverte v2.0)"
 private const val OSM_SOURCE = "Geofabrik extract https://download.geofabrik.de/europe/france/pays-de-la-loire.html " +
     "(© OpenStreetMap contributors, ODbL 1.0)"
-private const val STOPS_SOURCE = "official Naolib map stop list (plan-app.naolib.fr), in this repository - display positions only"
 
 /** Builds the four seed files from [osm], [gtfs] (feed id = its file name) and [bacs] into [outDir]. */
-private fun runPipeline(osm: File, gtfs: File, bacs: File, stops: File, outDir: File) {
+private fun runPipeline(osm: File, gtfs: File, bacs: File, outDir: File) {
     outDir.mkdirs()
     val walkFile = File(outDir, WALK_GRAPH)
     val (graph, ws) = WalkGraphBuilder.build(osm, source = osm.name.removeSuffix(".osm.pbf"))
@@ -102,14 +94,13 @@ private fun runPipeline(osm: File, gtfs: File, bacs: File, stops: File, outDir: 
     val source = GtfsSource.zip(gtfs).appending(GtfsSource.zip(bacsOut), BacsDeLoire.SPEC)
     val raw = GtfsConverter(source, feedId = gtfs.nameWithoutExtension).convert()
     val walkGraph = walkFile.inputStream().buffered().use(WalkGraphFormat::read)
-    val network = raw.withCrosswalk(Crosswalk.build(raw, readOfficialStops(stops)))
+    val network = raw
         .withFootpaths(Footpaths.compute(raw, walkGraph))
         .withRideShapes(RideShapes.carriedOver(raw, null))
     val networkFile = File(outDir, NETWORK)
     networkFile.outputStream().buffered().use { NetworkFormat.write(network, it) }
     println(
-        "network: ${network.stopPlaces.size} stop places (${network.stopPlaces.count { it.hasDisplayPosition }} at their " +
-            "official position), ${network.tripCount} trips, ${raw.hopKeys().size} hops, valid ${network.validFrom}..${network.validUntil}",
+        "network: ${network.stopPlaces.size} stop places, ${network.tripCount} trips, ${raw.hopKeys().size} hops, valid ${network.validFrom}..${network.validUntil}",
     )
 
     val reread = networkFile.inputStream().buffered().use(NetworkFormat::read)
@@ -143,7 +134,7 @@ private fun buildSeed(layout: SeedLayout, opts: Map<String, String>) {
     }
 
     val work = File(layout.root, "build/seed-build").apply { deleteRecursively() }
-    runPipeline(osm, gtfs, bacs, layout.stops, work)
+    runPipeline(osm, gtfs, bacs, work)
     layout.assets.mkdirs()
     for (name in OUTPUTS) File(work, name).copyTo(File(layout.assets, name), overwrite = true)
 
@@ -177,7 +168,6 @@ private fun buildSeed(layout: SeedLayout, opts: Map<String, String>) {
                 input("gtfs", gtfs, gtfs.name, GTFS_SOURCE, true)
                 input("bacs", bacs, bacs.name, BACS_SOURCE, true)
                 input("osm", osm, osm.name, OSM_SOURCE, true)
-                input("stops", layout.stops, layout.relative(layout.stops), STOPS_SOURCE, false)
             },
         )
         put(
@@ -227,7 +217,7 @@ private fun verifySeed(layout: SeedLayout, opts: Map<String, String>) {
     }
 
     val out = File(layout.root, "build/seed-verify").apply { deleteRecursively() }
-    runPipeline(byRole.getValue("osm"), byRole.getValue("gtfs"), byRole.getValue("bacs"), byRole.getValue("stops"), out)
+    runPipeline(byRole.getValue("osm"), byRole.getValue("gtfs"), byRole.getValue("bacs"), out)
 
     val failures = mutableListOf<String>()
     for (output in manifest["outputs"]!!.jsonArray.map { it.jsonObject }) {
@@ -296,17 +286,3 @@ private fun resolveFeed(): Feed {
         validUntil = record["fin_de_validite"]?.jsonPrimitive?.contentOrNull.orEmpty(),
     )
 }
-
-private fun readOfficialStops(file: File): List<OfficialStop> =
-    Json.parseToJsonElement(file.readText()).jsonObject["features"]!!.jsonArray.mapNotNull { f ->
-        val props = f.jsonObject["properties"] as? JsonObject ?: return@mapNotNull null
-        val coords = f.jsonObject["geometry"]?.jsonObject?.get("coordinates")?.jsonArray ?: return@mapNotNull null
-        val ext = props["external_id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        OfficialStop(
-            externalId = ext,
-            name = props["name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-            lat = coords[1].jsonPrimitive.double,
-            lon = coords[0].jsonPrimitive.double,
-            lines = props["linked_lines"]?.jsonPrimitive?.contentOrNull.orEmpty().split(';').filter { it.isNotBlank() }.toSet(),
-        )
-    }

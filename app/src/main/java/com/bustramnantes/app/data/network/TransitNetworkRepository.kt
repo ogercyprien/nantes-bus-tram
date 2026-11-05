@@ -7,7 +7,6 @@ import com.bustramnantes.app.domain.repository.NetworkConnectivityObserver
 import com.bustramnantes.transit.NetworkFormat
 import com.bustramnantes.transit.TransitNetwork
 import com.bustramnantes.transit.RideShapes
-import com.bustramnantes.transit.crosswalk
 import com.bustramnantes.transit.withRideShapes
 import com.bustramnantes.transit.gtfs.GtfsConverter
 import com.bustramnantes.transit.gtfs.BacsDeLoire
@@ -52,8 +51,7 @@ import javax.inject.Singleton
  * **Refresh** (daily worker + app open): resolve the current publication through the open-data records
  * API; when its key (file id + validity window, [GtfsFeed.key]) differs from the installed network's, download the zip (unmetered only, unless
  * the installed network no longer covers today), convert it on the device - streamed, ~7 s / <128 MB
- * heap on a desktop JVM - with the Bacs de Loire appended, carrying the display-position crosswalk over
- * and computing the quay-to-quay walks on the bundled OSM walking graph, write it next to the current
+ * heap on a desktop JVM - with the Bacs de Loire appended, computing the quay-to-quay walks on the bundled OSM walking graph, write it next to the current
  * one and swap the pointer atomically. The current network stays in use until the new one has loaded.
  */
 @Singleton
@@ -216,7 +214,7 @@ class TransitNetworkRepository @Inject constructor(
                 val converted = try {
                     withContext(Dispatchers.Default) {
                         withCarriedOverData(
-                            GtfsConverter(source, feedId = feed.key, crosswalk = current.crosswalk()).convert(),
+                            GtfsConverter(source, feedId = feed.key).convert(),
                             current,
                         )
                     }
@@ -256,7 +254,7 @@ class TransitNetworkRepository @Inject constructor(
             val (source, cleanup) = withBacs(zip)
             val converted = try {
                 withContext(Dispatchers.Default) {
-                    withCarriedOverData(GtfsConverter(source, feedId = feed.key, crosswalk = current.crosswalk()).convert(), current)
+                    withCarriedOverData(GtfsConverter(source, feedId = feed.key).convert(), current)
                 }
             } finally {
                 cleanup()

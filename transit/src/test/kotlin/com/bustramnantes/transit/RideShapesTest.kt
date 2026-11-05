@@ -45,10 +45,24 @@ class RideShapesTest {
         assertNull(roundTrip(net).rideShapes)
     }
 
+    /**
+     * `network-v3-mini.bin`: the mini feed written by format version 3 (StopPlaces with the old
+     * display-position flag and aliases), as phones that downloaded a network before v4 hold it.
+     */
+    private fun v3Bytes() = javaClass.getResourceAsStream("/network-v3-mini.bin")!!.readBytes()
+
+    @Test
+    fun `a version 3 file still reads`() {
+        val v3 = NetworkFormat.read(ByteArrayInputStream(v3Bytes()))
+        assertEquals(3, v3.formatVersion)
+        assertEquals(net.tripCount, v3.tripCount)
+        assertEquals(net.stopPlaces.map { it.name to it.lat }, v3.stopPlaces.map { it.name to it.lat })
+    }
+
     @Test
     fun `a version 2 file still reads, without ride shapes`() {
-        val bytes = ByteArrayOutputStream().also { NetworkFormat.write(net, it) }.toByteArray()
-        bytes[11] = 2 // big-endian version int after the 8-byte magic
+        val bytes = v3Bytes()
+        bytes[11] = 2 // big-endian version int after the 8-byte magic; v2 = v3 minus the ride shapes
         val v2 = NetworkFormat.read(ByteArrayInputStream(bytes))
         assertEquals(2, v2.formatVersion)
         assertNull(v2.rideShapes)

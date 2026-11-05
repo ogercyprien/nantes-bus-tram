@@ -31,8 +31,6 @@ data class MapUiState(
     val preselectStopId: String? = null,
     /** Our line map (one layout per zoom) for the network in use; null until read at startup. */
     val lineMaps: LineMapSet? = null,
-    /** Debug builds only: draw the official raster tiles instead of [lineMaps] (Settings › Débogage). */
-    val officialLineTiles: Boolean = false,
 ) {
     /** Whether the "no results" empty state should be shown under the search bar. */
     val showNoResults: Boolean

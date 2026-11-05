@@ -1,6 +1,5 @@
 package com.bustramnantes.transit
 
-import com.bustramnantes.transit.gtfs.CrosswalkEntry
 import com.bustramnantes.transit.gtfs.CsvReader
 import com.bustramnantes.transit.gtfs.GtfsConverter
 import com.bustramnantes.transit.gtfs.GtfsSource
@@ -20,8 +19,8 @@ class GtfsConverterTest {
 
     private val fixture = File(javaClass.getResource("/gtfs-mini/routes.txt")!!.toURI()).parentFile
 
-    private fun convert(crosswalk: Map<Int, CrosswalkEntry> = emptyMap()): TransitNetwork {
-        val network = GtfsConverter(GtfsSource.directory(fixture), feedId = "mini", crosswalk = crosswalk).convert()
+    private fun convert(): TransitNetwork {
+        val network = GtfsConverter(GtfsSource.directory(fixture), feedId = "mini").convert()
         // Always go through the packed form, so every assertion also covers the round trip.
         val bytes = ByteArrayOutputStream().also { NetworkFormat.write(network, it) }.toByteArray()
         return NetworkFormat.read(ByteArrayInputStream(bytes))
@@ -114,13 +113,11 @@ class GtfsConverterTest {
     }
 
     @Test
-    fun `crosswalk overlays display coordinates and aliases`() {
-        val n = convert(mapOf(1 to CrosswalkEntry(47.3, -1.6, listOf("Old Alpha"))))
-        val alpha = n.stopPlaces[n.stopPlaceIndexByNumber(1)!!]
-        assertEquals(47.3, alpha.lat, 1e-9)
-        assertTrue(alpha.hasDisplayPosition)
-        assertEquals(listOf("Old Alpha"), alpha.aliases)
-        assertEquals("Epsilon, Nord", n.stopPlaces[n.stopPlaceIndexByNumber(5)!!].name)
+    fun `stop places keep their GTFS position and name`() {
+        val alpha = net.stopPlaces[net.stopPlaceIndexByNumber(1)!!]
+        assertEquals(47.2, alpha.lat, 1e-9)
+        assertEquals(-1.56, alpha.lon, 1e-9)
+        assertEquals("Epsilon, Nord", net.stopPlaces[net.stopPlaceIndexByNumber(5)!!].name)
     }
 
     @Test

@@ -57,7 +57,6 @@ class NetworkIndex(
                 lon = sp.lon,
                 linkedLines = linked,
                 accessible = sp.wheelchair,
-                aliases = sp.aliases,
             )
         }
         stops = mergeDuplicateStops(raw)

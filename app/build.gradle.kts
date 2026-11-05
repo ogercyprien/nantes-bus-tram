@@ -99,13 +99,6 @@ android {
         compose = true
     }
 
-    androidResources {
-        // The bundled line-raster seed is an MBTiles (SQLite of already-compressed PNGs); skip aapt
-        // re-compression - it would cost CPU/APK size for no gain (it's copied out via a stream, not
-        // mmap'd, so leaving it uncompressed has no downside).
-        noCompress += "mbtiles"
-    }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

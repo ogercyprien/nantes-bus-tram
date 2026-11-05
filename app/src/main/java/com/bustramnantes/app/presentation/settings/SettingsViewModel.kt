@@ -49,9 +49,6 @@ sealed interface SettingsEvent {
     data object DebugConvertGtfsClicked : SettingsEvent
     /** Debug builds: rebuild the line map on the phone, timed. */
     data object DebugRebuildLineMapClicked : SettingsEvent
-
-    /** Debug builds: draw the Plan tab's lines from the official tiles ([enabled]) or our line map. */
-    data class DebugOfficialLineTilesChanged(val enabled: Boolean) : SettingsEvent
 }
 
 /** One-off Settings effects (snackbars) delivered via [SettingsViewModel.effects]. */
@@ -80,8 +77,6 @@ data class SettingsUiState(
     val appVersionName: String = "",
     /** Debug: the on-device GTFS conversion diagnostic is running. */
     val isDebugConverting: Boolean = false,
-    /** Debug: the Plan tab draws the official raster tiles instead of our line map. */
-    val officialLineTiles: Boolean = false,
 )
 
 /**
@@ -124,9 +119,6 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(favoritesCount = favorites.size) }
             }
         }
-        viewModelScope.launch {
-            appPreferencesDataStore.officialLineTiles.collect { official -> _uiState.update { it.copy(officialLineTiles = official) } }
-        }
         refreshCacheTimestamps()
     }
 
@@ -141,7 +133,6 @@ class SettingsViewModel @Inject constructor(
             SettingsEvent.ClearFavoritesConfirmed -> clearFavorites()
             SettingsEvent.DebugConvertGtfsClicked -> debugConvertGtfs()
             SettingsEvent.DebugRebuildLineMapClicked -> debugRebuildLineMap()
-            is SettingsEvent.DebugOfficialLineTilesChanged -> viewModelScope.launch { appPreferencesDataStore.setOfficialLineTiles(event.enabled) }
         }
     }
 

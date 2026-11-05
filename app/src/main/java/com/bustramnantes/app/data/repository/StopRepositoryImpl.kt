@@ -17,8 +17,7 @@ import kotlinx.coroutines.flow.map
  * offline from the very first start. No Room cache: the network is already an in-memory, offline copy,
  * and GTFS stop names are current.
  *
- * Search keys are precomputed per network (see [SearchIndex]): each stop's accent-folded name plus its
- * [Stop.aliases].
+ * Search keys are precomputed per network (see [SearchIndex]): each stop's accent-folded name.
  */
 @Singleton
 class StopRepositoryImpl @Inject constructor(
@@ -75,7 +74,7 @@ private class SearchIndex(val source: NetworkIndex) {
     val entries: List<IndexedStop> = source.stops.map { stop ->
         IndexedStop(
             stop = stop,
-            searchKeys = (listOf(stop.name) + stop.aliases.filter { it.isNotBlank() }).map(::normalizeForMatch),
+            searchKeys = listOf(normalizeForMatch(stop.name)),
         )
     }
 }
@@ -130,7 +129,6 @@ private fun mergeCluster(cluster: List<Stop>): Stop {
     return representative.copy(
         linkedLines = unionLines.toList(),
         accessible = cluster.any { it.accessible },
-        aliases = cluster.flatMap { it.aliases }.distinct(),
         memberIds = (representative.memberIds + cluster.flatMap { it.memberIds }).distinct(),
     )
 }

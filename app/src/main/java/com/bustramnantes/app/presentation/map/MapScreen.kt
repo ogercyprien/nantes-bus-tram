@@ -84,9 +84,8 @@ private val STOP_SHEET_PEEK_HEIGHT = 300.dp
 
 /**
  * Full-screen Naolib network map, on the shared [NaolibMapView] (base style + lifecycle forwarding)
- * with our own line map on top ([LineMapLayers]: lines side by side, stop dots on the lines, station
- * dashes), redrawn every half zoom. Debug builds can switch back to the official raster tiles
- * (Settings › Débogage) to compare the two.
+ * with our own line map on top ([LineMapLayers]: lines side by side, line numbers, stop dots on the
+ * lines, station dashes), redrawn every half zoom.
  *
  * Unlike the Home/Search/Itinerary entry points (which open Stop Detail as a `ModalBottomSheet` over
  * a `dialog()` destination), the map hosts the **same sheet body** ([StopDetailSheetInner]) itself,
@@ -206,8 +205,7 @@ fun MapScreen(
         // "recenter on me" FAB, so the compass would collide with it there.
         map.uiSettings.setCompassGravity(android.view.Gravity.BOTTOM or android.view.Gravity.START)
         map.uiSettings.setCompassMargins((12 * density).toInt(), 0, 0, (16 * density).toInt())
-        // The lines (ours, or the official tiles in debug builds) go below these two layers: see the
-        // effects keyed on the line map further down.
+        // The lines go below these two layers: see the effect keyed on the line map further down.
         // Selected-stop halo is added BEFORE the stops layer so the white stop dot draws on top
         // of its highlight ring (the ring surrounds the dot rather than covering it).
         loadedStyle.addSource(MapStyleIds.selectedStopSource(selectedStop))
@@ -250,32 +248,10 @@ fun MapScreen(
         style = loadedStyle
     }
 
-    // Official tiles (debug builds, Settings › Débogage) or our line map: switch the layers.
-    LaunchedEffect(style, uiState.officialLineTiles) {
-        val s = style ?: return@LaunchedEffect
-        if (uiState.officialLineTiles) {
-            LineMapLayers.remove(s)
-            lineMapRoutes = null
-            markerStops = emptySet()
-            if (s.getSource(MapStyleIds.SOURCE_NETWORK_RASTER) == null) {
-                s.addSource(MapStyleIds.networkRasterSource())
-                s.addLayerBelow(MapStyleIds.networkRasterLayer(), MapStyleIds.LAYER_SELECTED_STOP)
-                s.addSource(MapStyleIds.networkVectorSource())
-                s.addLayerBelow(MapStyleIds.networkLabelLayer(), MapStyleIds.LAYER_SELECTED_STOP)
-            }
-        } else if (s.getSource(MapStyleIds.SOURCE_NETWORK_RASTER) != null) {
-            s.removeLayer(MapStyleIds.LAYER_NETWORK_LABELS)
-            s.removeLayer(MapStyleIds.LAYER_NETWORK_RASTER)
-            s.removeSource(MapStyleIds.SOURCE_NETWORK)
-            s.removeSource(MapStyleIds.SOURCE_NETWORK_RASTER)
-        }
-    }
-
     // Our line map: the layout for the current zoom, redrawn off the main thread for each half zoom.
-    LaunchedEffect(style, uiState.lineMaps, uiState.officialLineTiles, zoomBucket) {
+    LaunchedEffect(style, uiState.lineMaps, zoomBucket) {
         val s = style ?: return@LaunchedEffect
         val maps = uiState.lineMaps ?: return@LaunchedEffect
-        if (uiState.officialLineTiles) return@LaunchedEffect
         val zoom = zoomBucket
         val layout = maps.layoutFor(zoom)
         val rendered = withContext(Dispatchers.Default) { LineMapLayers.render(layout, zoom) }
@@ -288,8 +264,8 @@ fun MapScreen(
     }
 
     // Stop dots for the stops the line map has no marker for (served only by lines it doesn't draw:
-    // school runs, night lines), at their GTFS position, so every stop can still be tapped. With the
-    // official tiles: every stop.
+    // school runs, night lines), at their GTFS position, so every stop can still be tapped (every
+    // stop until the line map is on screen).
     LaunchedEffect(style, uiState.stops, markerStops) {
         val shown = if (markerStops.isEmpty()) uiState.stops else uiState.stops.filter { stop -> stop.memberIds.none { it in markerStops } }
         style?.getSourceAs<GeoJsonSource>(MapStyleIds.SOURCE_STOPS)
