@@ -101,10 +101,16 @@ object MapStyleIds {
      * from a bare `Style.Builder()` has none, so symbol text silently never draws (raster/circle
      * layers are unaffected - they need no fonts). We therefore start the style from a minimal JSON
      * that sets only `glyphs`, then add every source/layer programmatically on top (see
-     * [baseStyleJson] / its use in `MapScreen`). The font server serves the fontstacks named by
-     * [networkLabelLayer]. Glyph PBFs go through the MapLibre OkHttp client, so they are disk-cached.
+     * [baseStyleJson] / its use in `MapScreen`).
+     *
+     * The glyphs are **bundled** (`assets/glyphs/`, Noto Sans Bold, SIL OFL, Latin ranges only): map
+     * text works offline from the first launch and needs no font server. [LABEL_FONT] is the only
+     * font stack; its directory name has no spaces because MapLibre puts it in the asset path.
      */
-    private const val GLYPHS_URL = "https://tile.cartographie.pro/fonts/{fontstack}/{range}.pbf"
+    private const val GLYPHS_URL = "asset://glyphs/{fontstack}/{range}.pbf"
+
+    /** The one bundled font stack (see [GLYPHS_URL]), for every map label. */
+    val LABEL_FONT = arrayOf("NotoSans-Bold")
 
     /** Minimal base style whose only job is to declare [GLYPHS_URL]; sources/layers are added after. */
     fun baseStyleJson(): String =
@@ -191,7 +197,7 @@ object MapStyleIds {
                 textHaloWidth(1.6f),
                 textSize(13f),
                 textAllowOverlap(false),
-                textFont(arrayOf("Open Sans Bold", "Arial Unicode MS Bold")),
+                textFont(LABEL_FONT),
             )
         }
 

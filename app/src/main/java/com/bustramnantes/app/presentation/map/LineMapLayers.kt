@@ -30,6 +30,15 @@ import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.symbolPlacement
+import org.maplibre.android.style.layers.PropertyFactory.textAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.textColor
+import org.maplibre.android.style.layers.PropertyFactory.textField
+import org.maplibre.android.style.layers.PropertyFactory.textFont
+import org.maplibre.android.style.layers.PropertyFactory.textHaloColor
+import org.maplibre.android.style.layers.PropertyFactory.textHaloWidth
+import org.maplibre.android.style.layers.PropertyFactory.textSize
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -51,8 +60,13 @@ import kotlin.math.pow
  * **Layers, bottom to top**: a white casing under every line; buses; boats (dashed); Busway and
  * Chronobus, **one layer per line** (a Chronobus is its `#6B2359` edge, its colour, then its white
  * stripe, 12 % of the width each, and the next line is drawn whole above it, so a line crossing a
- * Chronobus hides its stripe); trams on top. Stop dots and station dashes (from z14) over the lines.
- * Taps on them carry the GTFS StopPlace id ([PROP_STOP]).
+ * Chronobus hides its stripe); trams on top. Line numbers along the lanes from z13, then stop dots
+ * and station dashes (from z14) over the lines. Taps on them carry the GTFS StopPlace id ([PROP_STOP]).
+ *
+ * **Labels**: one line number per lane piece, placed at its middle (`line-center`: `line` placement
+ * only labels a feature longer than the label spacing), collisions thinned by MapLibre so a bundle
+ * shows a readable scatter; in the line's colour with a white halo, so it reads on its own lane or
+ * on the map beside it. Font: the bundled Noto Sans ([MapStyleIds.LABEL_FONT]).
  */
 object LineMapLayers {
     const val SOURCE_LINES = "linemap-lines-source"
@@ -61,6 +75,7 @@ object LineMapLayers {
     private const val LAYER_BUS = "linemap-bus"
     private const val LAYER_BOAT = "linemap-boat"
     private const val LAYER_TRAM = "linemap-tram"
+    private const val LAYER_LABELS = "linemap-labels"
     const val LAYER_DASH_OUTLINE = "linemap-dash-outline"
     const val LAYER_DASH = "linemap-dash"
     const val LAYER_DOTS = "linemap-dots"
@@ -74,6 +89,9 @@ object LineMapLayers {
     private const val PROP_CASING0 = "cw0"
     const val PROP_LABEL = "n"
     private const val PROP_OUTLINE0 = "o0"
+
+    /** Line numbers from this zoom (below, the network is too dense for them to help). */
+    private const val LABEL_MIN_ZOOM = 13f
 
     private const val CHRONOBUS_EDGE = "#6B2359"
     private const val MARKER_BLUE = "#1565C0"
@@ -152,6 +170,19 @@ object LineMapLayers {
         }
         layers += line(LAYER_TRAM, PROP_W0).withProperties(lineColor(toColor(get(PROP_COLOR))))
             .also { it.setFilter(eq(get(PROP_KIND), literal("tram"))) }
+        layers += SymbolLayer(LAYER_LABELS, SOURCE_LINES).withProperties(
+            symbolPlacement(Property.SYMBOL_PLACEMENT_LINE_CENTER),
+            textField(get(PROP_LABEL)),
+            textColor(toColor(get(PROP_COLOR))),
+            textHaloColor("#FFFFFF"),
+            textHaloWidth(1.6f),
+            textSize(13f),
+            textAllowOverlap(false),
+            textFont(MapStyleIds.LABEL_FONT),
+        ).also {
+            it.minZoom = LABEL_MIN_ZOOM
+            it.setFilter(Expression.has(PROP_LABEL))
+        }
         layers += LineLayer(LAYER_DASH_OUTLINE, SOURCE_MARKERS).withProperties(
             lineWidth(scaled(PROP_OUTLINE0)), lineColor(MARKER_BLUE), lineCap(Property.LINE_CAP_ROUND),
         )

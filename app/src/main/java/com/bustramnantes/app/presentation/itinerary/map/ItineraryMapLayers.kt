@@ -76,7 +76,7 @@ object ItineraryMapLayers {
     /** Start dot radius + white ring (dp); the finish dot is drawn the same size. */
     private const val END_DOT_RADIUS_DP = 8f
     private const val END_DOT_RING_DP = 3f
-    private val FONT = arrayOf("Open Sans Bold", "Arial Unicode MS Bold")
+    private val FONT = com.bustramnantes.app.presentation.map.MapStyleIds.LABEL_FONT
 
     /** Adds every itinerary source (empty), image and layer to [style]; [density] = screen density. */
     fun addTo(style: org.maplibre.android.maps.Style, density: Float) {
